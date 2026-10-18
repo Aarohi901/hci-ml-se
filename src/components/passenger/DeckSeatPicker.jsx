@@ -126,6 +126,17 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
   const [boardingPointId, setBoardingPointId] = useState(isOutbound ? 'stop-1' : 'stop-8');
   const [droppingPointId, setDroppingPointId] = useState(isOutbound ? 'stop-8' : 'stop-1');
 
+  // Synchronize stop selections when route direction or trip changes
+  useEffect(() => {
+    if (isOutbound) {
+      setBoardingPointId('stop-1');
+      setDroppingPointId('stop-8');
+    } else {
+      setBoardingPointId('stop-8');
+      setDroppingPointId('stop-1');
+    }
+  }, [isOutbound, tripId]);
+
   // Inline feedback messages
   const [errorMsg, setErrorMsg] = useState('');
   const [infoMsg, setInfoMsg] = useState('');
@@ -255,9 +266,12 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
     }
 
     setIsSubmitting(true);
-    announce('Processing trip request through deterministic fairness policy...');
+    announce('Confirming campus shuttle seat reservation...');
 
-    // Run Stage A Deterministic Priority Hierarchy Engine
+    // Synchronize chosen destination stop based on direction
+    const actualRequestedStop = isOutbound ? droppingPointId : 'stop-1';
+
+    // Run Deterministic Priority Hierarchy Engine with selected seat
     try {
       const evaluation = evaluateIIITCampusAllocation({
         student: {
@@ -266,19 +280,21 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
           declaredAccessibilityNeed
         },
         tripId,
-        requestedStop: isOutbound ? droppingPointId : boardingPointId,
+        requestedStop: actualRequestedStop,
         tripReason,
         reasonNote: tripReason === 'OTHER' ? otherReasonText.trim() : '',
         acceptableWindow: isFlexible ? flexibleWindowMinutes : 0,
-        journeyDate: bus?.journeyDate || new Date().toISOString().split('T')[0]
+        journeyDate: bus?.journeyDate || new Date().toISOString().split('T')[0],
+        selectedSeatId: selectedSeat?.id || null,
+        selectedStandingSpotId: selectedStandingSpot?.id || null
       });
 
       setAllocationResult(evaluation);
       setShowExplanationPanel(true);
-      announce(`Trip request processed. Allocation status: ${evaluation.status}`);
+      announce(`Reservation confirmed: ${evaluation.allocatedSpot || 'Confirmed'}`);
     } catch (err) {
       console.error('Error evaluating trip allocation:', err);
-      setErrorMsg('An error occurred while evaluating allocation. Please try again.');
+      setErrorMsg('An error occurred while confirming allocation. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

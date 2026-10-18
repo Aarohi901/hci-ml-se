@@ -35,13 +35,13 @@ export const PassengerNavbar = () => {
     { path: '/', label: t('busTickets'), key: 'busTickets', icon: Bus },
     { path: '/find-bus', label: t('nav.schedules'), key: 'nav.schedules', icon: Calendar },
     { path: '/live-tracking', label: t('nav.live_tracking'), key: 'nav.live_tracking', icon: Navigation },
-    { path: '/my-trips', label: t('myBookings'), key: 'myBookings', icon: Ticket },
+    { path: '/history', label: t('myHistory') || 'My History', key: 'myHistory', icon: Ticket },
     { path: '/help', label: t('help'), key: 'help', icon: HelpCircle },
   ];
 
   const isActive = (path) => {
     if (path === '/') return location.pathname === '/';
-    if (path === '/my-trips') return location.pathname === '/my-trips' || location.pathname === '/history';
+    if (path === '/history') return location.pathname === '/history' || location.pathname === '/my-trips';
     return location.pathname.startsWith(path);
   };
 
@@ -198,13 +198,13 @@ export const PassengerNavbar = () => {
 
                         <div className="py-1">
                           <Link
-                            to="/my-trips"
+                            to="/history"
                             onClick={() => setAccountMenuOpen(false)}
                             className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-sky-50 hover:text-[#075985] flex items-center gap-2.5"
                             role="menuitem"
                           >
                             <Ticket className="w-4 h-4 text-slate-400" />
-                            <span data-i18n="nav.my_bookings">{t('nav.my_bookings')}</span>
+                            <span>{t('myHistory') || 'My History'}</span>
                           </Link>
                           <Link
                             to="/admin"

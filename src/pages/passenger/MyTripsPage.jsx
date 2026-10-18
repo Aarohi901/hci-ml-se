@@ -396,20 +396,82 @@ export const MyTripsPage = () => {
       }
     ];
 
-    // Merge default with newly created user reservations if present
-    if (loadedTrips.length === 0) {
+    // Strict filtering: purge any legacy PMPML / Pune city bus data
+    const isLegacyPmpml = (item) => {
+      if (!item) return true;
+      const pnr = (item.pnr || item.id || '').toUpperCase();
+      if (pnr.startsWith('PMPML') || pnr.startsWith('PMP-')) return true;
+      if (item.totalPrice > 0 || (item.fareBreakdown && item.fareBreakdown.total > 0)) return true;
+      const routeText = `${item.route || ''} ${item.origin || ''} ${item.destination || ''} ${item.busName || ''}`.toLowerCase();
+      if (
+        routeText.includes('swargate') ||
+        routeText.includes('pmpml') ||
+        routeText.includes('katraj') ||
+        routeText.includes('hadapsar') ||
+        routeText.includes('hinjawadi') ||
+        routeText.includes('kothrud') ||
+        routeText.includes('pune station') ||
+        routeText.includes('sarasbaug') ||
+        routeText.includes('nigdi') ||
+        routeText.includes('bhosari')
+      ) {
+        return true;
+      }
+      const hasCampusTripId = item.tripId && /^T\d+$/i.test(item.tripId);
+      const isCampusRoute = routeText.includes('iiit') || routeText.includes('godavari') || routeText.includes('talegaon');
+      return !hasCampusTripId && !isCampusRoute;
+    };
+
+    const validCampusTrips = loadedTrips.filter(t => !isLegacyPmpml(t));
+
+    // Ensure all campus trips have a complete evaluation object for audit view
+    const sanitizedTrips = validCampusTrips.map(t => {
+      if (!t.evaluation) {
+        return {
+          ...t,
+          busPlate: t.busPlate || 'MH 14 BT 1001',
+          busModel: t.busModel || 'Tata Starbus EV-52 (52-Seater)',
+          evaluation: {
+            isFeasible: true,
+            status: t.status === 'CONFIRMED' ? 'ALLOCATED' : (t.status || 'ALLOCATED'),
+            allocationType: t.allocationType || (t.allocatedSpot?.toLowerCase().includes('standing') ? 'STANDING' : 'SEAT'),
+            allocatedSpot: t.allocatedSpot || 'Seat 4D',
+            isEmergencyQuota: Boolean(t.isEmergencyQuota),
+            explanation: {
+              level1Headline: `Seat Confirmed (${t.allocatedSpot || 'Seat 4D'})`,
+              level2Reason: `Your seat (${t.allocatedSpot || 'Seat 4D'}) is confirmed on the ${t.departureTime || '08:00'} IIIT Pune Campus Shuttle. Transport is free with your student MIS ID.`,
+              level3Audit: {
+                exactCounterfactual: 'Your reservation is confirmed under standard student transport guidelines.',
+                policyDecisionTrace: {
+                  rule1: 'Student ID: Verified (MIS ID)',
+                  rule2: `Travel Purpose: ${t.tripReasonLabel || t.tripReason || 'Campus Commute'}`,
+                  rule3: `Allocated Place: ${t.allocatedSpot || 'Seat 4D'}`,
+                  rule4: 'Fare: ₹0 (Free Student Pass)',
+                  rule5: `Reporting: Please arrive 5 minutes before scheduled departure`
+                }
+              }
+            }
+          }
+        };
+      }
+      return t;
+    });
+
+    if (sanitizedTrips.length === 0) {
       setTrips(defaultHistory);
       localStorage.setItem('smartbus_my_trips', JSON.stringify(defaultHistory));
+      localStorage.setItem('iiit_campus_trip_history', JSON.stringify(defaultHistory));
     } else {
-      // Ensure default trips are merged or present
-      const existingIds = new Set(loadedTrips.map(t => t.id || t.pnr));
-      const merged = [...loadedTrips];
+      const existingIds = new Set(sanitizedTrips.map(t => t.id || t.pnr));
+      const merged = [...sanitizedTrips];
       defaultHistory.forEach(item => {
         if (!existingIds.has(item.id)) {
           merged.push(item);
         }
       });
       setTrips(merged);
+      localStorage.setItem('smartbus_my_trips', JSON.stringify(merged));
+      localStorage.setItem('iiit_campus_trip_history', JSON.stringify(merged));
     }
   }, []);
 
@@ -480,6 +542,7 @@ export const MyTripsPage = () => {
 
       setTrips(updated);
       localStorage.setItem('smartbus_my_trips', JSON.stringify(updated));
+      localStorage.setItem('iiit_campus_trip_history', JSON.stringify(updated));
       announce(`${tripName} cancelled successfully.`);
     }
   };

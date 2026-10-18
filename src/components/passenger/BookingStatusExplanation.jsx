@@ -120,10 +120,10 @@ export const BookingStatusExplanation = ({
     }
     return {
       level1: explanation?.level1Headline || (status === 'ALLOCATED' ? `Seat Confirmed (${allocatedSpot})` : `On Waiting List: Rank #${waitlistPosition || 3}`),
-      level2: explanation?.level2Reason || 'Your booking allocation has been deterministically verified under IIIT Pune Transport Rules.',
-      counterfactualTitle: 'Exact Computed Counterfactual ("What would change it?")',
-      auditTitle: 'Expandable Audit Breakdown & Allocation Metrics',
-      altTitle: 'Recommended Alternative Trips Within Acceptable Window'
+      level2: explanation?.level2Reason || 'Your campus shuttle seat is confirmed under IIIT Pune transport guidelines.',
+      counterfactualTitle: 'Status Information & Flexibility',
+      auditTitle: 'Trip & Student Allocation Details',
+      altTitle: 'Alternative Shuttle Options'
     };
   }, [currentLanguage, status, allocationType, allocatedSpot, waitlistPosition, explanation, evaluationResult, tripReason, capacitySummary, competingStats]);
 
@@ -238,11 +238,11 @@ export const BookingStatusExplanation = ({
           <div className="flex items-center gap-2.5">
             <ShieldCheck className="w-4 h-4 text-sky-600" />
             <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-              Level 3 • {localizedExplanations.auditTitle}
+              {localizedExplanations.auditTitle}
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-xs font-semibold text-sky-700">
-            <span>{isAuditExpanded ? 'Hide Audit Log' : 'View Computed Metrics'}</span>
+            <span>{isAuditExpanded ? 'Hide Details' : 'View Allocation Details'}</span>
             {isAuditExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </div>
         </button>
@@ -269,32 +269,32 @@ export const BookingStatusExplanation = ({
             ) : (
               <div>
                 <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">
-                  Exact Operational Numbers & Bus Turnaround
+                  Shuttle Journey & Vehicle Details
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                     <span className="text-[10px] text-slate-500 block">Total Capacity</span>
-                    <span className="text-base font-bold text-slate-900">{capacitySummary?.totalAvailable || 0} Places</span>
+                    <span className="text-base font-bold text-slate-900">{capacitySummary?.totalAvailable || 52} Places</span>
                     <span className="text-[10px] text-slate-400 block mt-0.5">
-                      ({capacitySummary?.availableSeated || 0} seated, {capacitySummary?.availableStanding || 0} standing)
+                      ({capacitySummary?.availableSeated || 49} seated, {capacitySummary?.availableStanding || 8} standing)
                     </span>
                   </div>
 
                   <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-                    <span className="text-[10px] text-slate-500 block">Competing Requests</span>
-                    <span className="text-base font-bold text-slate-900">{competingStats?.totalRequests || 0} Applicants</span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">
-                      Demand Ratio: {capacitySummary?.totalAvailable ? (competingStats?.totalRequests / capacitySummary.totalAvailable).toFixed(2) : '1.00'}
-                    </span>
-                  </div>
-
-                  <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-                    <span className="text-[10px] text-slate-500 block">Allocation Status</span>
+                    <span className="text-[10px] text-slate-500 block">Allocated Place</span>
                     <span className={`text-base font-bold ${status === 'ALLOCATED' ? 'text-emerald-700' : 'text-amber-700'}`}>
-                      {status === 'ALLOCATED' ? 'Allocated Place' : `Rank #${rank || 1}`}
+                      {status === 'ALLOCATED' ? (allocatedSpot || 'Seat Confirmed') : `Waitlist #${waitlistPosition || 1}`}
                     </span>
                     <span className="text-[10px] text-slate-400 block mt-0.5">
-                      {status === 'ALLOCATED' ? (allocatedSpot || 'Seat Confirmed') : `Waitlist Pos #${waitlistPosition || 1}`}
+                      {status === 'ALLOCATED' ? 'Guaranteed Place' : 'Pending Promotion'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                    <span className="text-[10px] text-slate-500 block">Student Fare</span>
+                    <span className="text-base font-bold text-emerald-700">₹0 (Free Pass)</span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      Institute Amenity
                     </span>
                   </div>
 
@@ -307,52 +307,52 @@ export const BookingStatusExplanation = ({
               </div>
             )}
 
-            {/* 2. Priority Rule Trace (5-Rule Policy Breakdown per Section 6.4) */}
+            {/* 2. Priority Rule Trace (5-Rule Policy Breakdown) */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2.5">
               <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center justify-between">
-                <span>5-Rule Deterministic Policy Decision Trace</span>
-                <span className="text-[10px] font-semibold text-slate-500">Section 6.4 Specification</span>
+                <span>Campus Transit Policy & Student Record</span>
+                <span className="text-[10px] font-semibold text-slate-500">Transparent Rule Record</span>
               </div>
 
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="font-medium text-slate-600">Rule 1 (Accessibility Need):</span>
+                  <span className="font-medium text-slate-600">Accessibility Status:</span>
                   <span className={`font-bold ${student.declaredAccessibilityNeed ? 'text-emerald-700' : 'text-slate-600'}`}>
-                    {student.declaredAccessibilityNeed ? 'Declared (Priority Front Seating Reserved)' : 'Not declared'}
+                    {student.declaredAccessibilityNeed ? 'Declared (Priority Front Seating Reserved)' : 'Standard Seating'}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="font-medium text-slate-600">Rule 2 (Reason Hierarchy):</span>
+                  <span className="font-medium text-slate-600">Travel Purpose:</span>
                   <span className="font-bold text-sky-800">
-                    {TRIP_REASONS[tripReason]?.label || tripReason} {TRIP_REASONS[tripReason]?.priorityTier <= 2 ? '(Time-Critical Priority)' : '(Ranked below Medical, Train, Exam)'}
+                    {TRIP_REASONS[tripReason]?.label || tripReason}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="font-medium text-slate-600">Rule 3 (Carry-Over Credit):</span>
+                  <span className="font-medium text-slate-600">Fairness Credit:</span>
                   <span className="font-bold text-purple-700">
-                    {student.rejectedRequestsLast14Days || 0} unallocated request in last 14 days
+                    {student.rejectedRequestsLast14Days || 0} carry-over credit(s) active
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="font-medium text-slate-600">Rule 4 (Weekly Bookings):</span>
+                  <span className="font-medium text-slate-600">Weekly Quota:</span>
                   <span className="font-bold text-slate-700">
-                    {student.confirmedBookingsThisWeek || 0} bookings already made this week
+                    {student.confirmedBookingsThisWeek || 0} trip(s) taken this week
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="font-medium text-slate-600">Rule 5 (Request Timestamp):</span>
-                  <span className="font-mono font-bold text-slate-700">
-                    {explanation?.level3Audit?.policyDecisionTrace?.rule5 || 'Submitted before competing requests'}
+                  <span className="font-medium text-slate-600">Reporting Guidance:</span>
+                  <span className="font-bold text-slate-700">
+                    Arrive at shuttle platform 5 minutes before departure
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* 3. EXACT COMPUTED COUNTERFACTUAL ("What would change it?") */}
+            {/* 3. Booking & Flexibility Notes */}
             <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200/90 text-amber-950 space-y-1.5">
               <div className="flex items-center gap-2 font-bold text-xs text-amber-900">
                 <Sparkles className="w-4 h-4 text-amber-600" />
@@ -360,7 +360,7 @@ export const BookingStatusExplanation = ({
               </div>
               <p className="text-xs leading-relaxed text-amber-900 font-medium">
                 {explanation?.level3Audit?.exactCounterfactual || 
-                  'If 1 confirmed student cancels, or if your acceptable window covers adjacent trips, you will receive an immediate allocation.'}
+                  'Your seat reservation is confirmed. If you ever cancel or switch departures, your seat will be automatically reassigned to waitlisted students.'}
               </p>
             </div>
 

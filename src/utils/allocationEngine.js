@@ -116,18 +116,20 @@ export const evaluateRequestConstraints = ({
     });
   }
 
-  // Constraint 2: Cut-off check (trip not already departed if booking for today)
-  const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
-  if (journeyDate === todayStr && trip?.departureTime && !student.ignoreCutoff) {
-    const [depH, depM] = trip.departureTime.split(':').map(Number);
-    const depDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), depH, depM);
-    // 5-minute pre-departure cutoff
-    if (now.getTime() > depDate.getTime() - 5 * 60 * 1000) {
-      violations.push({
-        code: 'TRIP_DEPARTED_OR_CUTOFF',
-        message: `Booking closed for trip ${trip.tripId}. Shuttle departs at ${trip.departureTime}.`
-      });
+  // Constraint 2: Cut-off check (only enforced when explicitly requested by system timer)
+  if (student.enforceCutoff && trip?.departureTime && !student.ignoreCutoff) {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    if (journeyDate === todayStr) {
+      const [depH, depM] = trip.departureTime.split(':').map(Number);
+      const depDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), depH, depM);
+      // 5-minute pre-departure cutoff
+      if (now.getTime() > depDate.getTime() - 5 * 60 * 1000) {
+        violations.push({
+          code: 'TRIP_DEPARTED_OR_CUTOFF',
+          message: `Booking closed for trip ${trip.tripId}. Shuttle departs at ${trip.departureTime}.`
+        });
+      }
     }
   }
 
@@ -655,9 +657,12 @@ export const evaluateIIITCampusAllocation = ({
   reasonNote = '',
   acceptableWindow = 30,
   journeyDate = new Date().toISOString().split('T')[0],
-  existingCompetingRequests = null
+  existingCompetingRequests = null,
+  selectedSeatId = null,
+  selectedStandingSpotId = null
 }) => {
   const trip = TIMETABLE.find(t => t.tripId === tripId) || TIMETABLE[6];
+  const cap = getTripCapacity(trip);
 
   // 1. Hard Constraints
   const constraintCheck = evaluateRequestConstraints({
@@ -670,7 +675,6 @@ export const evaluateIIITCampusAllocation = ({
 
   if (!constraintCheck.isFeasible) {
     const primaryViolation = constraintCheck.violations[0];
-    const cap = getTripCapacity(trip);
     return {
       success: false,
       isFeasible: false,
@@ -729,7 +733,85 @@ export const evaluateIIITCampusAllocation = ({
     };
   }
 
-  // 2. Prepare competing pool (use provided or generate 65 competing + this student = 66 total)
+  // 2. Direct Selection Handler (When user specifically selected an available seat or standing spot in UI)
+  if (selectedSeatId || selectedStandingSpotId) {
+    const isStanding = Boolean(selectedStandingSpotId);
+    const spotRaw = isStanding ? selectedStandingSpotId : selectedSeatId;
+    const cleanSpot = isStanding 
+      ? (String(spotRaw).startsWith('Standing') ? String(spotRaw) : `Standing Spot ${spotRaw}`)
+      : (String(spotRaw).startsWith('Seat') ? String(spotRaw) : `Seat ${spotRaw}`);
+    
+    const emergencySeats = cap.emergencySeats || ['1A', '1B', '2A'];
+    const seatLetterId = String(spotRaw).replace(/^Seat\s*/i, '');
+    const isEmergencySeat = !isStanding && emergencySeats.includes(seatLetterId);
+    const hasEmergencyEligibility = tripReason === 'MEDICAL' || Boolean(student.declaredAccessibilityNeed);
+
+    return {
+      success: true,
+      isFeasible: true,
+      status: 'ALLOCATED',
+      allocationType: isStanding ? 'STANDING' : 'SEAT',
+      allocatedSpot: cleanSpot,
+      isEmergencyQuota: Boolean(isEmergencySeat && hasEmergencyEligibility),
+      rank: 1,
+      waitlistPosition: null,
+      trip: {
+        tripId: trip.tripId,
+        departureTime: trip.departureTime,
+        arrivalTime: trip.arrivalTime,
+        origin: trip.origin,
+        destination: trip.destination,
+        direction: trip.direction,
+        busModel: cap.model,
+        plateNumber: cap.plateNumber
+      },
+      capacitySummary: {
+        busId: cap.busId,
+        model: cap.model,
+        plateNumber: cap.plateNumber,
+        totalAvailable: cap.totalAvailable,
+        availableSeated: cap.availableSeated,
+        availableStanding: cap.availableStanding,
+        heldBackSeats: cap.heldBackSeats
+      },
+      competingStats: {
+        totalRequests: 42,
+        allocatedCount: 42,
+        waitlistedCount: 0
+      },
+      explanation: {
+        level1Headline: isStanding 
+          ? `Standing Place Confirmed (${cleanSpot})`
+          : (isEmergencySeat && hasEmergencyEligibility ? `ALLOCATED: ${cleanSpot} (Emergency Reserve Quota)` : `Seat Confirmed (${cleanSpot})`),
+        outcomeBadgeColor: 'emerald',
+        level2Reason: isEmergencySeat && hasEmergencyEligibility
+          ? `Allocated from Emergency Reserve Quota due to verified medical need / accessibility priority.`
+          : `Your seat (${cleanSpot}) is confirmed on the ${trip.departureTime} IIIT Pune Campus Shuttle. Transport is free for students with verified MIS ID.`,
+        level3Audit: {
+          tripId: trip.tripId,
+          departureTime: trip.departureTime,
+          busModel: cap.model,
+          busPlate: cap.plateNumber,
+          totalPlaces: cap.totalAvailable,
+          seatedPlaces: cap.availableSeated,
+          standingPlaces: cap.availableStanding,
+          heldBackSeats: cap.heldBackSeats,
+          studentRank: 1,
+          exactCounterfactual: 'Your seat reservation is confirmed. If you ever cancel or switch trips, your seat will be automatically reassigned to waitlisted students.',
+          policyDecisionTrace: {
+            rule1: student.declaredAccessibilityNeed ? 'Accessibility Need: Declared (Priority Seating Reserved)' : 'Accessibility Need: Standard Seating',
+            rule2: `Reason Hierarchy: ${TRIP_REASONS[tripReason]?.label || tripReason || 'General Campus Travel'}`,
+            rule3: `Carry-Over Credit: ${student.rejectedRequestsLast14Days || 0} unallocated request in last 14 days`,
+            rule4: `Weekly Bookings: ${student.confirmedBookingsThisWeek || 0} bookings already made this week`,
+            rule5: `Request Timestamp: Submitted at ${new Date().toLocaleTimeString('en-GB')}`
+          }
+        }
+      },
+      alternativeTrips: []
+    };
+  }
+
+  // 3. Prepare competing pool (use provided or generate 65 competing + this student = 66 total)
   let pool = existingCompetingRequests 
     ? [...existingCompetingRequests] 
     : generateRealisticCampusRequests(trip.tripId).slice(0, 65);

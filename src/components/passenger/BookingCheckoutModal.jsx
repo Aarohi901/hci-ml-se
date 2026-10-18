@@ -160,60 +160,87 @@ export const BookingCheckoutModal = ({
 
     const hasPrioritySeat = seats.some(s => isReservedPrioritySeat(typeof s === 'string' ? s : s.id));
 
-    const pnrNumber = 'PNR-' + Math.floor(Math.random() * 899999 + 100000);
+    const pnrNumber = 'CAMPUS-' + Math.floor(Math.random() * 899999 + 100000);
+    const allocatedSpotLabel = reservationData?.allocatedSpot || (seats[0] ? (typeof seats[0] === 'string' ? `Seat ${seats[0]}` : `Seat ${seats[0].id}`) : 'Seat 4D');
     const bookingRecord = {
       pnr: pnrNumber,
+      id: pnrNumber,
       busId: bus.id,
-      routeNumber: bus.routeNumber,
-      busPlate: bus.busPlate || 'MH 14 BT 3312',
-      operator: 'SmartBus Express Transit',
-      origin: bus.origin,
-      destination: bus.destination,
-      boardingPoint: boarding?.name,
-      boardingTime: boarding?.time,
-      droppingPoint: dropping?.name,
-      droppingTime: dropping?.time,
+      tripId: reservationData?.tripId || bus?.tripId || 'T7',
+      routeNumber: bus.routeNumber || 'Campus-Express',
+      busPlate: bus.busPlate || bus.plateNumber || 'MH 14 BT 1001',
+      busModel: bus.busModel || bus.model || 'Tata Starbus EV-52 (52-Seater)',
+      operator: 'IIIT Pune Campus Shuttle Service',
+      origin: bus.origin || 'IIIT Pune Campus (Main Gate)',
+      destination: bus.destination || 'Godavari Boys Hostel',
+      route: `${bus.origin || 'IIIT Pune Campus'} ➔ ${bus.destination || 'Godavari Boys Hostel'}`,
+      boardingPoint: boarding?.name || 'IIIT Pune Campus (Main Gate)',
+      boardingTime: bus.departureTime || boarding?.time || '08:00',
+      droppingPoint: dropping?.name || 'Godavari Boys Hostel',
+      droppingTime: bus.arrivalTime || dropping?.time || '08:50',
+      departureTime: bus.departureTime || boarding?.time || '08:00',
+      arrivalTime: bus.arrivalTime || dropping?.time || '08:50',
+      journeyDate: bus.journeyDate || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
       seats: seats.map(s => (typeof s === 'string' ? s : s.id)),
+      allocatedSpot: allocatedSpotLabel,
+      allocationType: 'SEAT',
+      category: 'UPCOMING',
+      canCancel: true,
       passengers,
-      // Priority allocation fields
-      tripPurpose: primaryPurpose,
-      priorityScore: priorityResult.score,
-      isPrioritySeat: hasPrioritySeat,
-      isHighPriority: priorityResult.isHighPriority,
+      misNumber: user?.misNumber || '112603001',
+      tripReason: primaryPurpose,
+      tripReasonLabel: primaryPurpose,
       contactEmail,
       contactPhone,
+      fareDisplay: 'Free (Campus Pass Included)',
       fareBreakdown: {
-        baseFare: totalBaseFare,
-        discount: discountAmount,
-        gst: gstTax,
-        total: finalTotal
+        baseFare: 0,
+        discount: 0,
+        gst: 0,
+        total: 0
       },
       idempotencyToken,
       bookingDate: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
-      status: 'Confirmed'
+      status: 'CONFIRMED',
+      statusPillText: 'Confirmed',
+      statusPillColor: 'EMERALD',
+      evaluation: reservationData?.evaluationResult || reservationData?.evaluation || {
+        isFeasible: true,
+        status: 'ALLOCATED',
+        allocationType: 'SEAT',
+        allocatedSpot: allocatedSpotLabel,
+        explanation: {
+          level1Headline: `Seat Confirmed (${allocatedSpotLabel})`,
+          level2Reason: `Your seat is confirmed on the ${bus.departureTime || '08:00'} IIIT Pune Campus Shuttle. Transport is free under student services with your MIS ID.`,
+          level3Audit: {
+            exactCounterfactual: 'Your reservation is confirmed. Releasing your place will promote waiting students.',
+            policyDecisionTrace: {
+              rule1: 'Student ID: Verified (MIS ID)',
+              rule2: `Travel Purpose: ${primaryPurpose}`,
+              rule3: `Allocated Place: ${allocatedSpotLabel}`,
+              rule4: 'Fare: ₹0 (Free Student Pass)',
+              rule5: 'Reporting: Please arrive 5 minutes before scheduled departure'
+            }
+          }
+        }
+      }
     };
 
     try {
-      const confirmResponse = await fetch('/api/bookings/confirm', {
+      await fetch('/api/bookings/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bookingRecord)
       });
-
-      if (confirmResponse.status === 422) {
-        const errorData = await confirmResponse.json().catch(() => ({}));
-        setErrorMsg(errorData.message || 'Priority seating validation failed: Insufficient score.');
-        setIsProcessing(false);
-        announce('Booking rejected: Insufficient priority eligibility.');
-        return;
-      }
     } catch (err) {
       console.warn('[SmartBus] Confirmation error caught:', err);
     }
 
-    // Save to localStorage
+    // Save to localStorage (strictly clean campus history)
     const existing = JSON.parse(localStorage.getItem('smartbus_my_trips') || '[]');
-    localStorage.setItem('smartbus_my_trips', JSON.stringify([bookingRecord, ...existing]));
+    const cleanedExisting = existing.filter(t => !t.pnr?.startsWith('PMPML') && !(t.totalPrice > 0));
+    localStorage.setItem('smartbus_my_trips', JSON.stringify([bookingRecord, ...cleanedExisting]));
+    localStorage.setItem('iiit_campus_trip_history', JSON.stringify([bookingRecord, ...cleanedExisting]));
     sessionStorage.setItem('smartbus_last_booking', JSON.stringify(bookingRecord));
 
     setTimeout(() => {

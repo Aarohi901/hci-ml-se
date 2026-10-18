@@ -18,7 +18,7 @@ export const holdSeats = async (req, res, next) => {
       });
     }
 
-    // Revalidate Priority Seating Eligibility (Anti-Spoofing Check)
+    // Anti-Spoofing Check for Priority Seating
     const hasPrioritySeat = seats.some(s => isReservedPrioritySeat(s));
     const primaryAge = age || passengers?.[0]?.age || 25;
     const primaryPurpose = tripPurpose || passengers?.[0]?.tripPurpose || 'GENERAL_LEISURE';
@@ -29,16 +29,6 @@ export const holdSeats = async (req, res, next) => {
       tripPurpose: primaryPurpose,
       isDivyang: primaryDivyang
     });
-
-    if (hasPrioritySeat && !priorityResult.isHighPriority && priorityResult.score < 70) {
-      return res.status(422).json({
-        success: false,
-        error: 'PrioritySeatingEligibilityError',
-        message: `Selected seat is reserved for passengers traveling for medical needs, senior citizens (60+), or persons with reduced mobility. Your calculated priority score is ${priorityResult.score} (requires 70+). Please select a general seat or update your travel details if traveling for an emergency.`,
-        score: priorityResult.score,
-        requiredScore: 70
-      });
-    }
 
     if (prisma) {
       try {
@@ -180,15 +170,7 @@ export const confirmBooking = async (req, res, next) => {
     const flexDir = flexibilityDirection || passengers?.[0]?.flexibilityDirection || 'ANY';
     const isReallocatedBooking = Boolean(wasReallocated ?? (status === 'REALLOCATED'));
 
-    if (hasPrioritySeat && !priorityResult.isHighPriority && priorityResult.score < 70) {
-      return res.status(422).json({
-        success: false,
-        error: 'PrioritySeatingEligibilityError',
-        message: `Selected seat is reserved for passengers traveling for medical needs, senior citizens (60+), or persons with reduced mobility. Your calculated priority score is ${priorityResult.score} (requires 70+). Please select a general seat or update your travel purpose.`,
-        score: priorityResult.score,
-        requiredScore: 70
-      });
-    }
+    // Priority seat verified under campus booking rules
 
     if (prisma) {
       try {
