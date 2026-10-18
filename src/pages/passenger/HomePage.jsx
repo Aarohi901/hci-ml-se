@@ -23,7 +23,7 @@ export const HomePage = () => {
 
   // Read URL query params or fallback to defaults
   const fromQuery = urlParams.get('from') || 'IIIT Pune Campus (Main Gate)';
-  const toQuery = urlParams.get('to') || 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)';
+  const toQuery = urlParams.get('to') || 'Talegaon Station';
   const dateQuery = urlParams.get('date') || new Date().toISOString().split('T')[0];
 
   // Search parameters state

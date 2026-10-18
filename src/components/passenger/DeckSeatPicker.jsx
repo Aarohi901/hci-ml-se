@@ -302,7 +302,9 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
 
   // Proceed from confirmation / explanation to checkout
   const handleProceedToConfirmation = () => {
-    const chosenDropping = outboundDroppingStops.find(s => s.id === droppingPointId) || outboundDroppingStops[outboundDroppingStops.length - 1];
+    const chosenDropping = isOutbound
+      ? (outboundDroppingStops.find(s => s.id === droppingPointId) || outboundDroppingStops[outboundDroppingStops.length - 1])
+      : { id: 'stop-1', name: 'IIIT Pune Campus (Main Gate)', time: arrivalTime, landmark: 'Main Gate Security & Admin Block' };
     const chosenBoarding = isOutbound
       ? { id: 'stop-1', name: 'IIIT Pune Campus (Main Gate)', time: departureTime, landmark: 'Main Gate Security & Admin Block' }
       : (inboundBoardingStops.find(s => s.id === boardingPointId) || inboundBoardingStops[0]);

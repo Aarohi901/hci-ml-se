@@ -13,10 +13,26 @@ export const PopularRoutesStrip = ({ onSelectRoute }) => {
   const routes = [
     { 
       fromTitle: 'Campus Main Gate', 
+      toTitle: 'Talegaon Station', 
+      from: 'IIIT Pune Campus (Main Gate)', 
+      to: 'Talegaon Station', 
+      fare: 'Free Campus Pass', 
+      time: 'T3, T5, T7, T10 (Station Express)' 
+    },
+    { 
+      fromTitle: 'Talegaon Station', 
+      toTitle: 'Campus Main Gate', 
+      from: 'Talegaon Station', 
+      to: 'IIIT Pune Campus (Main Gate)', 
+      fare: 'Free Campus Pass', 
+      time: 'T4, T6, T8 (Station Return)' 
+    },
+    { 
+      fromTitle: 'Campus Main Gate', 
       toTitle: 'Godavari Hostel', 
       from: 'IIIT Pune Campus (Main Gate)', 
       to: 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)', 
-      fare: 'Free Campus Shuttle', 
+      fare: 'Free Campus Pass', 
       time: 'T1, T3, T5, T7, T10' 
     },
     { 
@@ -24,40 +40,24 @@ export const PopularRoutesStrip = ({ onSelectRoute }) => {
       toTitle: 'Campus Main Gate', 
       from: 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)', 
       to: 'IIIT Pune Campus (Main Gate)', 
-      fare: 'Free Campus Shuttle', 
+      fare: 'Free Campus Pass', 
       time: 'T2, T4, T6, T8, T9' 
     },
     { 
-      fromTitle: 'Campus Main Gate', 
+      fromTitle: 'Godavari Hostel', 
       toTitle: 'Talegaon Station', 
-      from: 'IIIT Pune Campus (Main Gate)', 
+      from: 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)', 
       to: 'Talegaon Station', 
-      fare: 'Free Campus Shuttle', 
-      time: 'Train Connection Link' 
-    },
-    { 
-      fromTitle: 'Talegaon Station', 
-      toTitle: 'Campus Main Gate', 
-      from: 'Talegaon Station', 
-      to: 'IIIT Pune Campus (Main Gate)', 
-      fare: 'Free Campus Shuttle', 
-      time: 'Suburban Feeder' 
+      fare: 'Free Campus Pass', 
+      time: 'Hostel ➔ Station Link' 
     },
     { 
       fromTitle: 'Campus Main Gate', 
       toTitle: 'Medical Store / Hospital', 
       from: 'IIIT Pune Campus (Main Gate)', 
       to: 'Medical Store', 
-      fare: 'Free Campus Shuttle', 
+      fare: 'Free Campus Pass', 
       time: 'Healthcare Stop' 
-    },
-    { 
-      fromTitle: 'Godavari Hostel', 
-      toTitle: 'Laptop Service Centre', 
-      from: 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)', 
-      to: 'Laptop Service Centre', 
-      fare: 'Free Campus Shuttle', 
-      time: 'Tech Hub Link' 
     }
   ];
 

@@ -3,7 +3,7 @@
     "routeId": "IIITP-SHUTTLE-01",
     "routeNumber": "Campus Express (Route 1)",
     "routeName": "IIIT Pune Campus ⇄ Talegaon Station",
-    "corridorName": "IIIT Pune - Godavari - Talegaon Shuttle Corridor",
+    "corridorName": "IIIT Pune - Godavari - Talegaon Station Shuttle Corridor",
     "corridorId": "CORR_IIITP_TALEGAON",
     "routeType": "Campus Transit Shuttle",
     "origin": "IIIT Pune Campus (Main Gate)",
@@ -22,6 +22,30 @@
       "Hospital",
       "Laptop Service Centre",
       "Talegaon Station"
+    ],
+    "agency": "IIIT Pune Transport Department",
+    "activeFleet": 3
+  },
+  {
+    "routeId": "IIITP-SHUTTLE-02",
+    "routeNumber": "Hostel Commuter Line (Route 2)",
+    "routeName": "IIIT Pune Campus ⇄ Godavari Boys Hostel",
+    "corridorName": "IIIT Pune - Godavari Off-Campus Residence Line",
+    "corridorId": "CORR_IIITP_GODAVARI",
+    "routeType": "Hostel Feeder Shuttle",
+    "origin": "IIIT Pune Campus (Main Gate)",
+    "destination": "Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)",
+    "distanceKm": 9.5,
+    "operatingHours": "08:00 - 20:30",
+    "peakHeadway": "Morning & Evening Shift Batches",
+    "offPeakHeadway": "Scheduled Trips",
+    "fare": 0,
+    "stations": [
+      "IIIT Pune Campus (Main Gate)",
+      "L&T Circle",
+      "Restaurant Chain",
+      "Medical Store",
+      "Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)"
     ],
     "agency": "IIIT Pune Transport Department",
     "activeFleet": 3

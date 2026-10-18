@@ -28,7 +28,7 @@ const CAMPUS_STOPS = STOPS.map(s => ({
 
 export const JourneyPlannerCard = ({ 
   initialFrom = 'IIIT Pune Campus (Main Gate)', 
-  initialTo = 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)', 
+  initialTo = 'Talegaon Station', 
   onSearch,
   onOpenAlerts
 }) => {

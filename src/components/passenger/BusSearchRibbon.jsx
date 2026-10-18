@@ -13,18 +13,18 @@ import { useTranslation } from '../../context/TranslationContext';
 
 const POPULAR_TERMINALS = [
   { city: 'IIIT Pune', terminal: 'IIIT Pune Campus (Main Gate)', landmark: 'Campus Terminus & Admin Block' },
+  { city: 'Talegaon Route', terminal: 'Talegaon Station', landmark: 'Railway Station Central Platform' },
+  { city: 'Talegaon Route', terminal: 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)', landmark: 'Godavari Boys Off-Campus Residence' },
   { city: 'Talegaon Route', terminal: 'L&T Circle', landmark: 'Industrial Highway Junction' },
   { city: 'Talegaon Route', terminal: 'Restaurant Chain', landmark: 'Student Food Plaza' },
   { city: 'Talegaon Route', terminal: 'Medical Store', landmark: 'Pharmacy & Wellness Centre' },
-  { city: 'Talegaon Route', terminal: 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)', landmark: 'Godavari Boys Off-Campus Residence' },
   { city: 'Talegaon Route', terminal: 'Hospital', landmark: 'General Health Care Hospital' },
-  { city: 'Talegaon Route', terminal: 'Laptop Service Centre', landmark: 'IT Hardware Hub' },
-  { city: 'Talegaon Route', terminal: 'Talegaon Station', landmark: 'Railway Station Central Platform' },
+  { city: 'Talegaon Route', terminal: 'Laptop Service Centre', landmark: 'IT Hardware Hub' }
 ];
 
 export const BusSearchRibbon = ({ 
   initialFrom = 'IIIT Pune Campus (Main Gate)', 
-  initialTo = 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)', 
+  initialTo = 'Talegaon Station', 
   onSearch 
 }) => {
   const { announce } = useAccessibility();
