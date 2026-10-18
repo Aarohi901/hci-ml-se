@@ -113,7 +113,7 @@ export const HomePage = () => {
           {/* Headline & Subhead */}
           <div className="space-y-2 max-w-3xl mx-auto">
             <h1 className="text-3xl sm:text-4xl lg:text-[2.6rem] font-black text-slate-900 tracking-tight leading-tight">
-              Bus Tickets <span className="text-[#0284c7] font-extrabold">— Get Your Seat!</span>
+              Get Your Seat!
             </h1>
             <p className="text-sm sm:text-base font-medium text-slate-600">
               IIIT Pune Campus Shuttle Booking &amp; Seat Allocation
