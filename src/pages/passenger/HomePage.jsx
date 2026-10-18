@@ -99,7 +99,7 @@ export const HomePage = () => {
       
       {/* 1. Hero Section & Unified Search Ribbon with Ambient Mesh Aurora & Transit Grid */}
       <section 
-        className="relative bg-mesh-aurora pt-12 sm:pt-16 pb-14 sm:pb-20 px-4 sm:px-6 lg:px-8 border-b border-slate-200/80 overflow-visible"
+        className="relative bg-mesh-aurora pt-8 sm:pt-12 pb-10 sm:pb-14 px-4 sm:px-6 lg:px-8 border-b border-slate-200/80 overflow-visible"
         aria-label="Bus Search Hero"
       >
         {/* Subtle Transit Dot Matrix Overlay for Visual Depth */}
@@ -108,20 +108,9 @@ export const HomePage = () => {
           aria-hidden="true" 
         />
 
-        <div className="relative z-10 max-w-6xl mx-auto space-y-8 text-center">
+        <div className="relative z-10 max-w-6xl mx-auto space-y-4 text-center">
           
-          {/* Clean Headline & Subhead */}
-          <div className="space-y-2.5 max-w-3xl mx-auto">
-            <span className="text-xs font-semibold uppercase tracking-[0.05em] text-[#075985] bg-sky-100/80 px-3.5 py-1 rounded-full border border-sky-200/80 inline-block shadow-2xs" data-i18n="hero.badge">
-              {t('hero.badge')}
-            </span>
-            <h1 className="text-3xl sm:text-[2.25rem] font-semibold text-slate-900 tracking-[-0.02em] leading-[1.25]" data-i18n="heroHeadline">
-              {t('heroHeadline')}
-            </h1>
-            <p className="text-sm sm:text-base font-normal text-slate-600 leading-relaxed" data-i18n="heroSubtitle">
-              {t('heroSubtitle')}
-            </p>
-          </div>
+          <h1 className="sr-only">IIIT Pune Campus Shuttle</h1>
 
           {/* Unified Inline Search Ribbon with query sync & glassmorphism */}
           <BusSearchRibbon
