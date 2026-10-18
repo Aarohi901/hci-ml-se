@@ -108,9 +108,17 @@ export const HomePage = () => {
           aria-hidden="true" 
         />
 
-        <div className="relative z-10 max-w-6xl mx-auto space-y-4 text-center">
+        <div className="relative z-10 max-w-6xl mx-auto space-y-6 text-center">
           
-          <h1 className="sr-only">IIIT Pune Campus Shuttle</h1>
+          {/* Headline & Subhead */}
+          <div className="space-y-2 max-w-3xl mx-auto">
+            <h1 className="text-3xl sm:text-4xl lg:text-[2.6rem] font-black text-slate-900 tracking-tight leading-tight">
+              Bus Tickets <span className="text-[#0284c7] font-extrabold">— Get Your Seat!</span>
+            </h1>
+            <p className="text-sm sm:text-base font-medium text-slate-600">
+              IIIT Pune Campus Shuttle Booking &amp; Seat Allocation
+            </p>
+          </div>
 
           {/* Unified Inline Search Ribbon with query sync & glassmorphism */}
           <BusSearchRibbon
