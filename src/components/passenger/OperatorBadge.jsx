@@ -7,36 +7,15 @@ import React from 'react';
 export const OperatorBadge = ({ operator = '', className = '' }) => {
   const opLower = (operator || '').toLowerCase();
 
-  // 0. PMPML (Pune Mahanagar Parivahan Mahamandal Ltd - Authentic Maroon/Gold Transit Badge)
-  if (opLower.includes('pmpml') || opLower.includes('pune mahanagar')) {
+  // 0. IIIT Pune Official Campus Shuttle (Primary Badge)
+  if (opLower.includes('iiit') || opLower.includes('campus') || opLower.includes('shuttle') || !operator) {
     return (
       <div 
-        className={`w-9 h-9 rounded-xl bg-gradient-to-br from-rose-700 via-red-800 to-rose-950 shadow-xs flex items-center justify-center shrink-0 border border-amber-400/40 ${className}`}
-        title="PMPML (Pune Mahanagar Parivahan Mahamandal Ltd)"
-        aria-label="PMPML Official Transit Badge"
+        className={`w-9 h-9 rounded-xl bg-gradient-to-br from-sky-600 via-[#0369a1] to-sky-900 shadow-xs flex items-center justify-center shrink-0 border border-sky-300/40 text-white font-bold text-xs ${className}`}
+        title="IIIT Pune Official Campus Shuttle"
+        aria-label="IIIT Pune Official Transit Badge"
       >
-        <div className="flex flex-col items-center justify-center text-center">
-          <svg 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="w-4 h-4 text-amber-300"
-            aria-hidden="true"
-          >
-            <path 
-              d="M4 16C4 16.5523 4.44772 17 5 17H19C19.5523 17 20 16.5523 20 16V6C20 4.34315 18.6569 3 17 3H7C5.34315 3 4 4.34315 4 6V16Z" 
-              stroke="currentColor" 
-              strokeWidth="1.6" 
-            />
-            <path d="M4 10H20" stroke="currentColor" strokeWidth="1.4" />
-            <path d="M9 3V10" stroke="currentColor" strokeWidth="1.2" />
-            <path d="M15 3V10" stroke="currentColor" strokeWidth="1.2" />
-            <circle cx="7.5" cy="13.5" r="1.2" fill="currentColor" />
-            <circle cx="16.5" cy="13.5" r="1.2" fill="currentColor" />
-            <path d="M6 17V19M18 17V19" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
-          <span className="text-[7.5px] font-black text-amber-200 tracking-wider leading-none font-mono">PMPML</span>
-        </div>
+        <span className="text-[9px] font-black tracking-wider font-mono">IIITP</span>
       </div>
     );
   }
