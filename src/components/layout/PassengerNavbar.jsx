@@ -34,7 +34,6 @@ export const PassengerNavbar = () => {
   const navTabs = [
     { path: '/', label: t('busTickets'), key: 'busTickets', icon: Bus },
     { path: '/find-bus', label: t('nav.schedules'), key: 'nav.schedules', icon: Calendar },
-    { path: '/live-tracking', label: t('nav.live_tracking'), key: 'nav.live_tracking', icon: Navigation },
     { path: '/history', label: t('myHistory') || 'My History', key: 'myHistory', icon: Ticket },
     { path: '/help', label: t('help'), key: 'help', icon: HelpCircle },
   ];

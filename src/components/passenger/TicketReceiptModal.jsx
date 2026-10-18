@@ -95,14 +95,9 @@ Contact Phone: ${booking.contactPhone || 'N/A'}
     document.body.removeChild(element);
   };
 
-  const handleTrackLive = () => {
-    onClose();
-    navigate('/live-tracking');
-  };
-
   const handleViewMyTrips = () => {
     onClose();
-    navigate('/my-trips');
+    navigate('/history');
   };
 
   return (
@@ -340,20 +335,10 @@ Contact Phone: ${booking.contactPhone || 'N/A'}
             <button
               type="button"
               data-a11y-engine="true"
-              onClick={handleTrackLive}
-              className="flex-1 sm:flex-initial px-5 py-2.5 bg-sky-50 hover:bg-sky-100 text-[#075985] border border-sky-300 font-black text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5"
-            >
-              <Bus className="w-4 h-4 text-[#075985]" />
-              <span>Track Bus Live</span>
-            </button>
-
-            <button
-              type="button"
-              data-a11y-engine="true"
               onClick={handleViewMyTrips}
               className="flex-1 sm:flex-initial px-6 py-2.5 bg-[#075985] hover:bg-[#0C4A6E] text-white font-black text-xs uppercase tracking-wider rounded-xl transition-colors shadow-xs flex items-center justify-center gap-1.5"
             >
-              <span data-i18n="myBookings">{t('myBookings')}</span>
+              <span>{t('myHistory') || 'My History'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

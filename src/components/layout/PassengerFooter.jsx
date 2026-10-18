@@ -49,13 +49,8 @@ export const PassengerFooter = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/live-tracking" className="hover:text-white hover:underline" data-i18n="footer.live_tracking">
-                  {t('footer.live_tracking')}
-                </Link>
-              </li>
-              <li>
-                <Link to="/my-trips" className="hover:text-white hover:underline" data-i18n="footer.my_bookings">
-                  {t('footer.my_bookings')}
+                <Link to="/history" className="hover:text-white hover:underline">
+                  {t('myHistory') || 'My History'}
                 </Link>
               </li>
             </ul>

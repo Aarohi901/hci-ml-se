@@ -703,14 +703,6 @@ Thank you for commuting with BusMate! Have a safe and timely trip!
             <Printer className="w-4 h-4" />
             <span>Print E-Ticket / Save PDF</span>
           </button>
-
-          <Link
-            to="/live-tracking"
-            className="px-5 py-3 bg-sky-50 hover:bg-sky-100 text-[#075985] font-semibold text-xs uppercase tracking-wider rounded-xl border border-sky-300 transition-colors flex items-center gap-2"
-          >
-            <Navigation className="w-4 h-4 text-[#075985]" />
-            <span>Track Bus Live</span>
-          </Link>
         </div>
 
         <div className="flex items-center gap-2">

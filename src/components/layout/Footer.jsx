@@ -81,18 +81,13 @@ export const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/live-tracking" className="min-h-[36px] flex items-center hover:text-white hover:underline rounded">
-                  Live Bus Tracking & GPS Feed
-                </Link>
-              </li>
-              <li>
                 <Link to="/find-bus" className="min-h-[36px] flex items-center hover:text-white hover:underline rounded">
                   Route Timetables & Schedules
                 </Link>
               </li>
               <li>
-                <Link to="/my-trips" className="min-h-[36px] flex items-center hover:text-white hover:underline rounded">
-                  My Trips & Commuter History
+                <Link to="/history" className="min-h-[36px] flex items-center hover:text-white hover:underline rounded">
+                  My History & Student Allocations
                 </Link>
               </li>
               <li>

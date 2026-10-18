@@ -175,12 +175,6 @@ export default function FindBusPage() {
                     <Armchair className="h-5 w-5" aria-hidden="true" />
                     Request Seat
                   </Button>
-                  <Link to={`/live-tracking?bus=${bus.id}`}>
-                    <Button variant="secondary">
-                      <Radio className="h-5 w-5" aria-hidden="true" />
-                      Track Bus
-                    </Button>
-                  </Link>
                 </div>
                 {explainBusId === bus.id && (
                   <div className="mt-6 border-t border-border pt-6">

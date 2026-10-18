@@ -11,7 +11,6 @@ import { AdminLayout } from './layouts/AdminLayout';
 // Public Passenger Pages
 import { HomePage } from './pages/passenger/HomePage';
 import { FindBusPage } from './pages/passenger/FindBusPage';
-import { LiveTrackingPage } from './pages/passenger/LiveTrackingPage';
 import { MyTripsPage } from './pages/passenger/MyTripsPage';
 import { HowItWorksPage } from './pages/passenger/HowItWorksPage';
 import { HelpFeedbackPage } from './pages/passenger/HelpFeedbackPage';
@@ -44,7 +43,7 @@ export function App() {
             <Route element={<PassengerLayout />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/find-bus" element={<FindBusPage />} />
-              <Route path="/live-tracking" element={<LiveTrackingPage />} />
+              <Route path="/live-tracking" element={<Navigate to="/" replace />} />
               <Route path="/my-trips" element={<MyTripsPage />} />
               <Route path="/history" element={<MyTripsPage />} />
               <Route path="/how-it-works" element={<HowItWorksPage />} />
