@@ -25,7 +25,7 @@ import {
 import { useAccessibility } from '../../context/AccessibilityContext';
 import { useTranslation } from '../../context/TranslationContext';
 import { useAuth } from '../../context/AuthContext';
-import { evaluateIIITCampusAllocation } from '../../utils/allocationEngine';
+import { evaluateIIITCampusAllocation, checkTimetableClash } from '../../utils/allocationEngine';
 import { STOPS, FLEET, TIMETABLE, ROUTE_INFO, TRIP_REASONS } from '../../data/iiitBusData';
 import { BookingStatusExplanation } from './BookingStatusExplanation';
 
@@ -45,7 +45,7 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
   const navigate = useNavigate();
   const { announce } = useAccessibility();
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, updateStudentProfile, clearClassTimetable } = useAuth();
 
   // Active student profile (authenticated via MIS)
   const student = useMemo(() => ({
@@ -57,7 +57,8 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
     roomNumber: user?.roomNumber || 'K-302',
     canTravelStanding: user?.canTravelStanding !== undefined ? user.canTravelStanding : true,
     declaredAccessibilityNeed: Boolean(user?.declaredAccessibilityNeed),
-    rejectedRequestsLast14Days: user?.rejectedRequestsLast14Days || 0,
+    carryOverCredits: user?.carryOverCredits ?? user?.rejectedRequestsLast14Days ?? 0,
+    rejectedRequestsLast14Days: user?.carryOverCredits ?? user?.rejectedRequestsLast14Days ?? 0,
     confirmedBookingsThisWeek: user?.confirmedBookingsThisWeek || 1,
     weeklyClassTimetable: user?.weeklyClassTimetable || []
   }), [user]);
@@ -70,6 +71,37 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
   const arrivalTime = bus?.arrivalTime || timetableEntry.arrivalTime || '08:50';
   const direction = bus?.direction || timetableEntry.direction || 'AWAY_FROM_CAMPUS';
   const assignedBusId = bus?.assignedBus || bus?.busId || timetableEntry.assignedBus || 'BUS-01';
+
+  // Soft clash override and pre-check for timetable conflict (Section 13.4)
+  const [overrideClassClash, setOverrideClassClash] = useState(false);
+  const detectedClash = useMemo(() => {
+    return checkTimetableClash(student.weeklyClassTimetable, timetableEntry, bus?.journeyDate);
+  }, [student.weeklyClassTimetable, timetableEntry, bus?.journeyDate]);
+
+  const handleClearAllClashes = () => {
+    if (clearClassTimetable) {
+      clearClassTimetable();
+    } else if (updateStudentProfile) {
+      updateStudentProfile({ weeklyClassTimetable: [] });
+    }
+    try {
+      const raw = localStorage.getItem('iiit_campus_student');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        parsed.weeklyClassTimetable = [];
+        localStorage.setItem('iiit_campus_student', JSON.stringify(parsed));
+      }
+      const rawLegacy = localStorage.getItem('smartbus_auth_user');
+      if (rawLegacy) {
+        const parsed = JSON.parse(rawLegacy);
+        parsed.weeklyClassTimetable = [];
+        localStorage.setItem('smartbus_auth_user', JSON.stringify(parsed));
+      }
+    } catch (e) {}
+    setOverrideClassClash(true);
+    setInfoMsg('All class timetable clashes cleared. You can now request any shuttle departure.');
+    announce('All class timetable clashes cleared.');
+  };
   
   // Fleet sizing: Bus 3 = 32 seats + 5 standing (37 total); Bus 1 & 2 = 52 seats + 8 standing (60 total)
   const isBus3 = assignedBusId === 'BUS-03' || bus?.seatsTotal === 32 || bus?.seatsCapacity === 32 || tripId === 'T8';
@@ -84,8 +116,7 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
   const busModel = isBus3 ? 'Eicher Skyline-32 Compact' : (assignedBusId === 'BUS-02' ? 'Ashok Leyland Oyster-52' : 'Tata Starbus EV-52');
   const busPlate = bus?.busPlate || (isBus3 ? 'MH 14 BT 1003' : (assignedBusId === 'BUS-02' ? 'MH 14 BT 1002' : 'MH 14 BT 1001'));
 
-  // Form State: Trip Reason & Preferences
-  const [tripReason, setTripReason] = useState('TRAIN_CONNECTION');
+  const [tripReason, setTripReason] = useState('SHOPPING');
   const [otherReasonText, setOtherReasonText] = useState('');
   const [declaredAccessibilityNeed, setDeclaredAccessibilityNeed] = useState(student.declaredAccessibilityNeed);
   const [canTravelStanding, setCanTravelStanding] = useState(student.canTravelStanding);
@@ -277,7 +308,8 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
         student: {
           ...student,
           canTravelStanding,
-          declaredAccessibilityNeed
+          declaredAccessibilityNeed,
+          overrideClassClash
         },
         tripId,
         requestedStop: actualRequestedStop,
@@ -286,12 +318,25 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
         acceptableWindow: isFlexible ? flexibleWindowMinutes : 0,
         journeyDate: bus?.journeyDate || new Date().toISOString().split('T')[0],
         selectedSeatId: selectedSeat?.id || null,
-        selectedStandingSpotId: selectedStandingSpot?.id || null
+        selectedStandingSpotId: selectedStandingSpot?.id || null,
+        overrideClassClash
       });
+
+      // Credit Awarding on Negative Case (Section 3.1)
+      if (evaluation.status === 'WAITLISTED') {
+        const currentCredits = Number(student.carryOverCredits || 0);
+        const newCredits = Math.min(3, currentCredits + 1);
+        if (updateStudentProfile) {
+          updateStudentProfile({
+            carryOverCredits: newCredits,
+            rejectedRequestsLast14Days: newCredits
+          });
+        }
+      }
 
       setAllocationResult(evaluation);
       setShowExplanationPanel(true);
-      announce(`Reservation confirmed: ${evaluation.allocatedSpot || 'Confirmed'}`);
+      announce(`Reservation evaluated: ${evaluation.allocatedSpot || evaluation.status}`);
     } catch (err) {
       console.error('Error evaluating trip allocation:', err);
       setErrorMsg('An error occurred while confirming allocation. Please try again.');
@@ -300,7 +345,7 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
     }
   };
 
-  // Proceed from confirmation / explanation to checkout
+  // Proceed directly to Booking Confirmation / Digital Boarding Pass (Zero Payment Workflow)
   const handleProceedToConfirmation = () => {
     const chosenDropping = isOutbound
       ? (outboundDroppingStops.find(s => s.id === droppingPointId) || outboundDroppingStops[outboundDroppingStops.length - 1])
@@ -310,31 +355,56 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
       : (inboundBoardingStops.find(s => s.id === boardingPointId) || inboundBoardingStops[0]);
 
     const allocatedSpotLabel = allocationResult?.allocatedSpot || (selectedSeat ? `Seat ${selectedSeat.id}` : (selectedStandingSpot ? selectedStandingSpot.label : 'Allocated Place'));
+    const isWaitlist = allocationResult?.status === 'WAITLISTED';
 
-    const reservationPayload = {
+    // Credit Consumption on Allocated Promotion (Section 3.3)
+    if (!isWaitlist && allocationResult?.status === 'ALLOCATED' && (student.carryOverCredits || 0) > 0) {
+      const consumedCredits = Math.max(0, (student.carryOverCredits || 0) - 1);
+      if (updateStudentProfile) {
+        updateStudentProfile({
+          carryOverCredits: consumedCredits,
+          rejectedRequestsLast14Days: consumedCredits
+        });
+      }
+    }
+
+    const pnr = `IIITP-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const confirmedBookingRecord = {
+      pnr,
+      bookingId: `BK-2026-${Math.floor(1000 + Math.random() * 9000)}`,
       bus,
       busId: bus.id,
       tripId,
       assignedBus: assignedBusId,
       busPlate,
       busModel,
-      seats: selectedSeat ? [selectedSeat] : [],
+      seats: selectedSeat ? [selectedSeat.id] : (allocationResult?.allocatedSpot ? [allocationResult.allocatedSpot] : ['S-01']),
       selectedSeatId: selectedSeat?.id || (allocationResult?.allocationType === 'SEAT' ? allocationResult.allocatedSpot : null),
       selectedStandingSpot: selectedStandingSpot?.id || (allocationResult?.allocationType === 'STANDING' ? allocationResult.allocatedSpot : null),
       allocationType: allocationResult?.allocationType || (selectedStandingSpot ? 'STANDING' : 'SEAT'),
-      status: allocationResult?.status || 'ALLOCATED',
+      status: isWaitlist ? 'Waitlisted' : 'Confirmed',
       allocatedSpot: allocatedSpotLabel,
+      routeNumber: `Trip ${tripId} (${departureTime} Departure)`,
+      operator: 'IIIT Pune Transport Department',
+      busClass: `${busModel} (${busPlate})`,
+      origin: chosenBoarding.name,
+      destination: chosenDropping.name,
       boarding: chosenBoarding,
       boardingPoint: chosenBoarding.name,
+      boardingTime: departureTime,
       dropping: chosenDropping,
       droppingPoint: chosenDropping.name,
-      totalBaseFare: 0,
-      totalFare: 0,
-      fareDisplay: 'Free (Campus Pass Included)',
+      droppingTime: arrivalTime,
+      bookingDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+      bookingTime: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' IST',
+      journeyDate: bus?.journeyDate || new Date().toISOString().split('T')[0],
       // Authenticated Student Details
       misNumber: student.misNumber,
       passengerName: student.fullName,
       studentProfile: student,
+      contactEmail: user?.email || `${student.misNumber}@iiitp.ac.in`,
+      contactPhone: user?.phone || '+91 98231 44501',
       tripReason,
       tripReasonLabel: TRIP_REASONS[tripReason]?.label || tripReason,
       reasonNote: otherReasonText,
@@ -343,22 +413,35 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
       isFlexible,
       flexibleWindowMinutes,
       explanation: allocationResult?.explanation,
-      evaluationResult: allocationResult
+      evaluationResult: allocationResult,
+      passengers: [
+        {
+          name: student.fullName,
+          misNumber: student.misNumber,
+          seatId: allocatedSpotLabel.replace(/^(Seat|Standing Spot)\s*/i, ''),
+          gender: 'Student',
+          age: 20
+        }
+      ]
     };
 
-    // Store in session and local storage
+    // Store in my trips and last booking
     try {
-      sessionStorage.setItem('smartbus_current_reservation', JSON.stringify(reservationPayload));
-      localStorage.setItem('smartbus_current_reservation', JSON.stringify(reservationPayload));
+      sessionStorage.setItem('smartbus_last_booking', JSON.stringify(confirmedBookingRecord));
+      localStorage.setItem('smartbus_last_booking', JSON.stringify(confirmedBookingRecord));
+      
+      const storedTrips = JSON.parse(localStorage.getItem('smartbus_my_trips') || '[]');
+      const updatedTrips = [confirmedBookingRecord, ...storedTrips.filter(t => t.pnr !== pnr)];
+      localStorage.setItem('smartbus_my_trips', JSON.stringify(updatedTrips));
     } catch (e) {
       console.warn('Storage warning:', e);
     }
 
     if (onProceedToCheckout) {
-      onProceedToCheckout(reservationPayload);
+      onProceedToCheckout(confirmedBookingRecord);
     } else {
       onClose();
-      navigate('/checkout');
+      navigate(`/booking-confirmation?pnr=${pnr}`);
     }
   };
 
@@ -374,10 +457,19 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
         {/* Header Strip */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-200">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-sky-50 text-[#0369a1] border border-sky-200">
                 IIIT Pune Campus Shuttle
               </span>
+              {tripId === 'T7' && (
+                <span 
+                  id="modal-t7-oversubscribed-chip"
+                  className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-300 font-bold text-[11px] shadow-2xs flex items-center gap-1.5"
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span>Trip T7 (17:30) • High Demand (Oversubscribed)</span>
+                </span>
+              )}
               <span className="text-xs font-semibold text-slate-500 font-mono">
                 {ROUTE_INFO.routeName}
               </span>
@@ -431,12 +523,20 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
                   {student.fullName} • {student.course} ({student.branch}) • {student.hostel}
                 </div>
                 <div className="text-[11px] text-slate-500 font-medium">
-                  Verified Student Profile • {student.roomNumber} • Carry-over Credits: {student.rejectedRequestsLast14Days} • Weekly Bookings: {student.confirmedBookingsThisWeek}
+                  Verified Student Profile • {student.roomNumber} • Priority Boosts: {student.rejectedRequestsLast14Days} • Weekly Bookings: {student.confirmedBookingsThisWeek}
                 </div>
               </div>
             </div>
 
-            <div className="self-start sm:self-center">
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+              <button
+                type="button"
+                onClick={handleClearAllClashes}
+                title="Wipe mock timetable clashes in 1 click"
+                className="px-2.5 py-1 text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-300 transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <span>⚡ Clear All Class Clashes</span>
+              </button>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-50 text-[#0369a1] border border-sky-200">
                 <Clock className="w-3.5 h-3.5" />
                 Trip {tripId} ({departureTime} Departure)
@@ -956,12 +1056,49 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
                 </span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="font-medium text-slate-600">Fare Policy:</span>
-                <span className="text-sm font-bold text-[#0369a1]">
-                  Free (Institute Student Pass)
+                <span className="font-medium text-slate-600">Shuttle Service:</span>
+                <span className="text-xs font-bold text-[#0369a1] bg-white px-2.5 py-0.5 rounded-lg border border-sky-200">
+                  Trip {tripId} ({departureTime} Departure)
                 </span>
               </div>
             </div>
+
+            {/* Class Timetable Clash Warning with Soft Override (Section 13.4) */}
+            {detectedClash.hasClash && (
+              <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-2xl space-y-2.5">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-xs font-bold text-amber-950">
+                      ⚠️ Class Schedule Conflict Warning
+                    </div>
+                    <div className="text-xs text-amber-900 mt-0.5 leading-relaxed">
+                      Trip {tripId} ({departureTime}) overlaps with your listed <strong>{detectedClash.clashingSlot?.subject}</strong> ({detectedClash.clashingSlot?.startTime} to {detectedClash.clashingSlot?.endTime}). Do you still wish to request this shuttle?
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-amber-200">
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-amber-950">
+                    <input
+                      type="checkbox"
+                      id="chk-deck-override-clash"
+                      checked={overrideClassClash}
+                      onChange={(e) => setOverrideClassClash(e.target.checked)}
+                      className="w-4 h-4 rounded text-amber-600 border-amber-300 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <span>Yes, I have permission / lab is cancelled today</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleClearAllClashes}
+                    className="text-[11px] font-bold text-amber-800 hover:text-amber-950 underline self-start sm:self-auto cursor-pointer"
+                  >
+                    Clear All Class Clashes
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Primary Action Button */}
             <button
@@ -1037,6 +1174,60 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
                 </button>
               </div>
 
+              {/* Soft Override CTA if Timetable Clash Occurred (Section 13.4) */}
+              {allocationResult.status === 'TIMETABLE_CLASH' && (
+                <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-xs text-amber-950 block">Class Schedule Conflict Detected</span>
+                    <span className="text-xs text-amber-900 block">
+                      {allocationResult.overrideMessage || 'Trip overlaps with your listed class session. If you have permission or lab is cancelled today, you can proceed anyway.'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOverrideClassClash(true);
+                        setShowExplanationPanel(false);
+                        const actualRequestedStop = isOutbound ? droppingPointId : 'stop-1';
+                        const reEval = evaluateIIITCampusAllocation({
+                          student: {
+                            ...student,
+                            canTravelStanding,
+                            declaredAccessibilityNeed,
+                            overrideClassClash: true
+                          },
+                          tripId,
+                          requestedStop: actualRequestedStop,
+                          tripReason,
+                          reasonNote: tripReason === 'OTHER' ? otherReasonText.trim() : '',
+                          acceptableWindow: isFlexible ? flexibleWindowMinutes : 0,
+                          journeyDate: bus?.journeyDate || new Date().toISOString().split('T')[0],
+                          selectedSeatId: selectedSeat?.id || null,
+                          selectedStandingSpotId: selectedStandingSpot?.id || null,
+                          overrideClassClash: true
+                        });
+                        setAllocationResult(reEval);
+                        setShowExplanationPanel(true);
+                      }}
+                      className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                    >
+                      Proceed with Permission
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleClearAllClashes();
+                        setShowExplanationPanel(false);
+                      }}
+                      className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-xs rounded-xl cursor-pointer"
+                    >
+                      Clear Clashes
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Render Unified 3-Level Explanation Engine */}
               <BookingStatusExplanation
                 booking={{
@@ -1048,8 +1239,10 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
                   roomNumber: student.roomNumber,
                   declaredAccessibilityNeed,
                   canTravelStanding,
+                  carryOverCredits: student.carryOverCredits,
                   rejectedRequestsLast14Days: student.rejectedRequestsLast14Days,
                   confirmedBookingsThisWeek: student.confirmedBookingsThisWeek,
+                  weeklyClassTimetable: student.weeklyClassTimetable,
                   tripId,
                   tripPurpose: tripReason,
                   reasonNote: tripReason === 'OTHER' ? otherReasonText.trim() : '',
@@ -1059,6 +1252,69 @@ export const DeckSeatPicker = ({ bus, isOpen, onClose, onProceedToCheckout }) =>
                   journeyDate: bus?.journeyDate || new Date().toISOString().split('T')[0]
                 }}
                 evaluationResult={allocationResult}
+                onAcceptReallocation={(altTrip) => {
+                  const switchedTripId = altTrip.tripId || 'T8';
+                  const switchedTime = altTrip.departureTime || '18:20';
+                  const switchedBus = TIMETABLE.find(t => t.tripId === switchedTripId) || TIMETABLE[7];
+                  const cap = getTripCapacity(switchedBus);
+                  const pnr = `IIITP-${Math.floor(100000 + Math.random() * 900000)}`;
+
+                  const switchedBookingRecord = {
+                    pnr,
+                    bookingId: `BK-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+                    bus: switchedBus,
+                    busId: switchedBus.assignedBus || 'BUS-03',
+                    tripId: switchedTripId,
+                    assignedBus: switchedBus.assignedBus || 'BUS-03',
+                    busPlate: cap.plateNumber || 'MH 14 BT 1003',
+                    busModel: cap.model || 'Eicher Skyline-32 Compact',
+                    seats: ['14A'],
+                    selectedSeatId: '14A',
+                    allocationType: 'SEAT',
+                    status: 'Confirmed',
+                    allocatedSpot: 'Seat 14A',
+                    routeNumber: `Trip ${switchedTripId} (${switchedTime} Departure)`,
+                    operator: 'IIIT Pune Transport Department',
+                    busClass: `${cap.model} (${cap.plateNumber})`,
+                    origin: 'IIIT Pune Campus (Main Gate)',
+                    destination: 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)',
+                    boardingPoint: 'IIIT Pune Campus (Main Gate)',
+                    boardingTime: switchedTime,
+                    droppingPoint: 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)',
+                    droppingTime: switchedBus.arrivalTime || '19:10',
+                    bookingDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+                    bookingTime: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' IST',
+                    journeyDate: bus?.journeyDate || new Date().toISOString().split('T')[0],
+                    misNumber: student.misNumber,
+                    passengerName: student.fullName,
+                    studentProfile: student,
+                    tripReason,
+                    tripReasonLabel: TRIP_REASONS[tripReason]?.label || tripReason,
+                    passengers: [
+                      {
+                        name: student.fullName,
+                        misNumber: student.misNumber,
+                        seatId: '14A',
+                        gender: 'Student',
+                        age: 20
+                      }
+                    ]
+                  };
+
+                  try {
+                    sessionStorage.setItem('smartbus_last_booking', JSON.stringify(switchedBookingRecord));
+                    localStorage.setItem('smartbus_last_booking', JSON.stringify(switchedBookingRecord));
+                    const storedTrips = JSON.parse(localStorage.getItem('smartbus_my_trips') || '[]');
+                    localStorage.setItem('smartbus_my_trips', JSON.stringify([switchedBookingRecord, ...storedTrips.filter(t => t.pnr !== pnr)]));
+                  } catch (e) {
+                    console.warn('Storage warning:', e);
+                  }
+
+                  setShowExplanationPanel(false);
+                  onClose();
+                  navigate(`/booking-confirmation?pnr=${pnr}`);
+                  announce(`Switched to Trip ${switchedTripId} departing at ${switchedTime}`);
+                }}
                 showSimulatorControls={false}
               />
 

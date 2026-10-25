@@ -73,17 +73,15 @@ Dropping Point: ${booking.droppingPoint || 'Central Station'} (${booking.droppin
 PASSENGERS:
 ${(booking.passengers || []).map((p, idx) => `Seat ${p.seatId}: ${p.name} (${p.age}y, ${p.gender})`).join('\n')}
 
-FARE BREAKDOWN:
-Base Fare: Rs. ${booking.fareBreakdown?.baseFare || 50}
-Discount: Rs. ${booking.fareBreakdown?.discount || 0}
-Transit GST (5%): Rs. ${booking.fareBreakdown?.gst || 2}
-Total Paid: Rs. ${booking.fareBreakdown?.total || 52}
+TRANSIT VERIFICATION:
+Service Type: IIIT Pune Campus Shuttle Amenity
+Allocation Policy: Deterministic Fairness Priority
+Status: Confirmed Digital Pass
+Next-Trip Priority Boost: ${booking.carryOverCredits ?? 0} Active
 
-Idempotency Key: ${booking.idempotencyToken || 'N/A'}
-Contact Email: ${booking.contactEmail || 'N/A'}
-Contact Phone: ${booking.contactPhone || 'N/A'}
+Contact Support: transport@iiitp.ac.in
 ========================================
-    Thank you for riding with BusMate!
+    Thank you for commuting with BusMate!
 ========================================
 `;
     const element = document.createElement('a');
@@ -266,7 +264,7 @@ Contact Phone: ${booking.contactPhone || 'N/A'}
           </div>
         </div>
 
-        {/* Fare Breakdown & Simulated QR Code */}
+        {/* Transit Verification & Simulated QR Code */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center bg-slate-50 p-4 rounded-2xl border border-slate-200">
           
           {/* Simulated QR Code for Gate Scanner */}
@@ -278,30 +276,32 @@ Contact Phone: ${booking.contactPhone || 'N/A'}
             <span className="text-[9px] font-mono font-bold text-slate-800">ID: {booking.pnr}</span>
           </div>
 
-          {/* Detailed Financial & Security Breakdown */}
+          {/* Detailed Transit Verification & Carry-Over Credit Status */}
           <div className="sm:col-span-8 space-y-1.5 text-xs">
             <div className="flex justify-between text-slate-600 font-semibold">
-              <span>Base Fare:</span>
-              <span>₹{booking.fareBreakdown?.baseFare || 50}</span>
+              <span>Service Type:</span>
+              <span className="text-slate-800">Campus Shuttle Amenity</span>
             </div>
-            {booking.fareBreakdown?.discount > 0 && (
-              <div className="flex justify-between text-emerald-700 font-bold">
-                <span>Concession / Promo Discount:</span>
-                <span>-₹{booking.fareBreakdown?.discount}</span>
-              </div>
-            )}
             <div className="flex justify-between text-slate-600 font-semibold">
-              <span>Transit GST & Municipal Cess (5%):</span>
-              <span>₹{booking.fareBreakdown?.gst || 2}</span>
+              <span>Allocation Policy:</span>
+              <span className="text-emerald-700 font-bold">Deterministic Fairness Priority</span>
             </div>
-            <div className="flex justify-between font-black text-base text-slate-900 pt-1 border-t border-slate-200">
-              <span>Total Paid Amount:</span>
-              <span className="text-[#075985]">₹{booking.fareBreakdown?.total || 52}</span>
+            <div className="flex justify-between text-slate-600 font-semibold">
+              <span>Next-Trip Priority:</span>
+              <span className="text-amber-700 font-bold font-mono">
+                {Number(booking.carryOverCredits || 0) > 0 ? `+${booking.carryOverCredits} Active Priority Boost` : 'None active'}
+              </span>
+            </div>
+            <div className="flex justify-between font-bold text-xs text-slate-900 pt-2 border-t border-slate-200">
+              <span>Pass Classification:</span>
+              <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-mono">
+                INSTITUTE AMENITY PASS
+              </span>
             </div>
 
             <div className="pt-2 text-[10px] font-mono text-slate-400">
-              <span>Idempotency Auth: </span>
-              <span className="text-slate-600">{booking.idempotencyToken}</span>
+              <span>Authorized Verification Token: </span>
+              <span className="text-slate-600 font-mono">{booking.idempotencyToken || 'AUTH-IIITP-CAMPUS'}</span>
             </div>
           </div>
 

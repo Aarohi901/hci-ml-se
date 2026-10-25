@@ -4,7 +4,6 @@ import busesData from '../../data/buses.json';
 import { BusSearchRibbon } from '../../components/passenger/BusSearchRibbon';
 import { BusSearchResults } from '../../components/passenger/BusSearchResults';
 import { DeckSeatPicker } from '../../components/passenger/DeckSeatPicker';
-import { BookingCheckoutModal } from '../../components/passenger/BookingCheckoutModal';
 import { TicketReceiptModal } from '../../components/passenger/TicketReceiptModal';
 
 export const FindBusPage = () => {
@@ -45,14 +44,13 @@ export const FindBusPage = () => {
     setSelectedBusForDeck(bus);
   };
 
-  const handleProceedToCheckout = (reservationData) => {
+  const handleProceedToCheckout = (bookingRecord) => {
     setSelectedBusForDeck(null);
-    navigate('/checkout');
-  };
-
-  const handleBookingSuccess = (bookingRecord) => {
-    setCheckoutReservation(null);
-    setConfirmedBooking(bookingRecord);
+    if (bookingRecord?.pnr) {
+      navigate(`/booking-confirmation?pnr=${bookingRecord.pnr}`);
+    } else {
+      navigate('/booking-confirmation');
+    }
   };
 
   return (
@@ -83,15 +81,7 @@ export const FindBusPage = () => {
         onProceedToCheckout={handleProceedToCheckout}
       />
 
-      {/* WORKFLOW STEP 2: Checkout & Reservation Modal */}
-      <BookingCheckoutModal
-        reservationData={checkoutReservation}
-        isOpen={!!checkoutReservation}
-        onClose={() => setCheckoutReservation(null)}
-        onBookingSuccess={handleBookingSuccess}
-      />
-
-      {/* WORKFLOW STEP 3: Confirmed Ticket Receipt Modal */}
+      {/* WORKFLOW STEP 2: Confirmed Ticket Receipt Modal */}
       <TicketReceiptModal
         booking={confirmedBooking}
         isOpen={!!confirmedBooking}

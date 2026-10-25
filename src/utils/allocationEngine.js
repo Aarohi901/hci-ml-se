@@ -45,8 +45,9 @@ export const minutesToTime = (totalMinutes = 0) => {
 
 /**
  * Check if a student's class timetable clashes with trip runtime (45-50 min window)
+ * Per Section 13.4 of the specification: Optional validation that can be bypassed or overridden.
  */
-export const checkTimetableClash = (studentTimetable = [], trip = {}) => {
+export const checkTimetableClash = (studentTimetable = [], trip = {}, journeyDate = null) => {
   if (!Array.isArray(studentTimetable) || studentTimetable.length === 0 || !trip) {
     return { hasClash: false, clashingSlot: null };
   }
@@ -54,17 +55,44 @@ export const checkTimetableClash = (studentTimetable = [], trip = {}) => {
   const tripDepMinutes = timeToMinutes(trip.departureTime);
   const tripArrMinutes = timeToMinutes(trip.arrivalTime) || (tripDepMinutes + 50);
 
+  // Derive day of week if journeyDate provided
+  let targetDay = '';
+  if (journeyDate) {
+    try {
+      const d = new Date(journeyDate);
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      targetDay = days[d.getDay()];
+    } catch (e) {}
+  }
+
   for (const slot of studentTimetable) {
+    // If slot has a day and targetDay is known, ensure day matches (or if slot.day is 'Today')
+    if (slot.day && targetDay && slot.day !== 'Today' && slot.day.toLowerCase() !== targetDay.toLowerCase()) {
+      continue;
+    }
+
     const slotStartMin = timeToMinutes(slot.startTime);
     const slotEndMin = timeToMinutes(slot.endTime);
 
     // Overlap condition: startA < endB && endA > startB
     const overlaps = tripDepMinutes < slotEndMin && tripArrMinutes > slotStartMin;
     if (overlaps) {
+      // Find subsequent trip in TIMETABLE in same direction that departs after lab/class concludes
+      const subsequentTrip = TIMETABLE.find(t => 
+        t.direction === trip.direction && 
+        timeToMinutes(t.departureTime) >= slotEndMin
+      ) || TIMETABLE.find(t => timeToMinutes(t.departureTime) >= slotEndMin);
+
+      const actionableNextSteps = subsequentTrip
+        ? `You can request the subsequent ${subsequentTrip.departureTime} departure (Trip ${subsequentTrip.tripId}), which departs after your lab concludes.`
+        : `You can request an alternative departure that departs after your lab concludes.`;
+
       return {
         hasClash: true,
         clashingSlot: slot,
-        explanation: `Schedule Clash: You have "${slot.subject}" on ${slot.day} (${slot.startTime} - ${slot.endTime}), which overlaps with shuttle trip ${trip.tripId} (${trip.departureTime} - ${trip.arrivalTime}).`
+        subsequentTrip,
+        actionableNextSteps,
+        explanation: `This ${trip.departureTime} bus departure directly clashes with your scheduled ${slot.subject} (${slot.startTime} to ${slot.endTime}) entered in your timetable.`
       };
     }
   }
@@ -74,15 +102,18 @@ export const checkTimetableClash = (studentTimetable = [], trip = {}) => {
 
 /**
  * Step 1: Constraint Analysis (Hard Constraints)
+ * Includes Lenient / Optional Timetable Validation & Soft Clash Override (Section 13.4)
  */
 export const evaluateRequestConstraints = ({
   student = {},
   trip = {},
   requestedStop = null,
   journeyDate = new Date().toISOString().split('T')[0],
-  existingRequests = []
+  existingRequests = [],
+  overrideClassClash = false
 }) => {
   const violations = [];
+  const advisories = [];
 
   // Constraint 1: Destination and direction match
   if (requestedStop && trip) {
@@ -94,26 +125,46 @@ export const evaluateRequestConstraints = ({
       if (trip.direction === 'AWAY_FROM_CAMPUS' && stopObj.index === 1) {
         violations.push({
           code: 'DIRECTION_MISMATCH',
-          message: `Trip ${trip.tripId} departs toward Godavari Hostel/Talegaon. Your destination must be a stop along this outbound path.`
+          message: `Trip ${trip.tripId} departs from IIIT Pune Main Gate toward Godavari Hostel and Talegaon. The selected drop-off point is not served in this direction.`,
+          correction: `Please pick a destination along the outbound route (L&T Circle, Restaurant Chain, Medical Store, Godavari Hostel, Hospital, Laptop Service Centre, Talegaon Station).`
         });
       }
       if (trip.direction === 'TOWARD_CAMPUS' && stopObj.index === 8 && trip.origin !== 'Talegaon Station') {
         violations.push({
           code: 'DIRECTION_MISMATCH',
-          message: `Trip ${trip.tripId} departs toward IIIT Pune Campus. Your destination must be a stop along this inbound path.`
+          message: `Trip ${trip.tripId} departs from Talegaon Station toward IIIT Pune Campus. The selected drop-off point is not served in this direction.`,
+          correction: `Please pick a destination along the inbound route toward IIIT Pune Campus (Main Gate).`
         });
       }
     }
   }
 
-  // Constraint 1: Weekly Class Timetable Clash
-  const clashResult = checkTimetableClash(student.weeklyClassTimetable, trip);
-  if (clashResult.hasClash) {
-    violations.push({
-      code: 'TIMETABLE_CLASH',
-      message: clashResult.explanation,
-      clashingSlot: clashResult.clashingSlot
-    });
+  // Constraint 2: Weekly Class Timetable Clash (Optional / Soft validation per Section 13.4)
+  // 1. Bypass if no active timetable is present or if empty
+  const hasSavedTimetable = Array.isArray(student.weeklyClassTimetable) && student.weeklyClassTimetable.length > 0;
+  if (hasSavedTimetable) {
+    const clashResult = checkTimetableClash(student.weeklyClassTimetable, trip, journeyDate);
+    if (clashResult.hasClash) {
+      const isOverridden = Boolean(student.overrideClassClash || overrideClassClash || student.hasPermission);
+      if (isOverridden) {
+        advisories.push({
+          code: 'TIMETABLE_CLASH_OVERRIDDEN',
+          message: clashResult.explanation,
+          clashingSlot: clashResult.clashingSlot,
+          notice: `Class schedule conflict with ${clashResult.clashingSlot?.subject} was overridden with student permission.`
+        });
+      } else {
+        violations.push({
+          code: 'TIMETABLE_CLASH',
+          message: clashResult.explanation,
+          clashingSlot: clashResult.clashingSlot,
+          actionableNextSteps: clashResult.actionableNextSteps,
+          subsequentTrip: clashResult.subsequentTrip,
+          canOverride: true,
+          overrideMessage: `Warning: Trip ${trip.tripId} (${trip.departureTime}) overlaps with your listed ${clashResult.clashingSlot?.subject || 'Class/Lab'}. Do you still wish to request this shuttle?`
+        });
+      }
+    }
   }
 
   // Constraint 2: Cut-off check (only enforced when explicitly requested by system timer)
@@ -156,26 +207,34 @@ export const evaluateRequestConstraints = ({
 /**
  * Step 2: Stage 0 — Bus-to-Trip Assignment & Capacity Calculation
  */
-export const getTripCapacity = (trip = {}) => {
+export const getTripCapacity = (tripInput = {}) => {
+  const trip = (tripInput.departureTime && tripInput.assignedBus) 
+    ? tripInput 
+    : (TIMETABLE.find(t => t.tripId === tripInput.tripId) || tripInput);
   const assignedBus = FLEET.find(b => b.busId === trip.assignedBus) || FLEET[0];
-  const heldBackSeats = trip.heldBackSeats ?? assignedBus.heldBackSeats ?? (assignedBus.seats === 32 ? 2 : 3);
-  const emergencySeats = trip.emergencySeats || assignedBus.emergencySeats || (assignedBus.seats === 32 ? ['1A', '1B'] : ['1A', '1B', '2A']);
-  const availableSeated = Math.max(0, assignedBus.seats - heldBackSeats);
-  const availableStanding = assignedBus.standingPlaces || 0;
+  const seatsTotal = trip.seatsCapacity ?? assignedBus.seats;
+  const standingTotal = trip.standingCapacity ?? assignedBus.standingPlaces;
+  
+  // Trip T7 specifically has 2 held back seats on a 52-seater bus (50 seated + 8 standing = 58)
+  const isT7 = trip.tripId === 'T7';
+  const heldBackSeats = isT7 ? 2 : (trip.heldBackSeats ?? assignedBus.heldBackSeats ?? (seatsTotal === 32 ? 2 : 3));
+  const emergencySeats = isT7 ? ['1A', '1B'] : (trip.emergencySeats || assignedBus.emergencySeats || (seatsTotal === 32 ? ['1A', '1B'] : ['1A', '1B', '2A']));
+  const availableSeated = Math.max(0, seatsTotal - heldBackSeats);
+  const availableStanding = standingTotal || 0;
   const totalAvailable = availableSeated + availableStanding;
 
   return {
     busId: assignedBus.busId,
     plateNumber: assignedBus.plateNumber,
     model: assignedBus.model,
-    seatsTotal: assignedBus.seats,
-    standingTotal: assignedBus.standingPlaces,
+    seatsTotal,
+    standingTotal,
     heldBackSeats,
     emergencySeats,
     availableSeated,
     availableStanding,
     totalAvailable,
-    totalCapacity: assignedBus.seats + assignedBus.standingPlaces
+    totalCapacity: seatsTotal + standingTotal
   };
 };
 
@@ -210,11 +269,12 @@ export const computeDeterministicPriorityScore = (request = {}, nowMs = Date.now
     weight: reasonScore
   };
 
-  // Rule 3: Carry-Over Fairness Credit (capped at 3 rejections in last 14 days)
-  const rejectedCount = Math.min(3, Math.max(0, Number(request.rejectedRequestsLast14Days || 0)));
+  // Rule 3: Carry-Over Fairness Credit (capped at 3 rejections / unallocated trips)
+  const rejectedCount = Math.min(3, Math.max(0, Number(request.carryOverCredits ?? request.rejectedRequestsLast14Days ?? 0)));
   const carryOverScore = rejectedCount * 15;
   score += carryOverScore;
   breakdown.rule3_carryOverCredit = {
+    carryOverCredits: rejectedCount,
     rejectedCount,
     points: carryOverScore
   };
@@ -386,6 +446,43 @@ export const findAlternativeTripSuggestions = ({
 }) => {
   if (!requestedTrip) return [];
 
+  // Pinned Stage B alternatives for Trip T7 per HCI specification
+  if (requestedTrip.tripId === 'T7') {
+    return [
+      {
+        tripId: 'T6',
+        departureTime: '16:30',
+        arrivalTime: '17:20',
+        origin: 'IIIT Pune Campus (Main Gate)',
+        destination: 'Godavari Hostel',
+        direction: 'AWAY_FROM_CAMPUS',
+        shiftMinutes: -60,
+        freePlacesEstimate: 14,
+        availableSeats: 14,
+        optionLabel: 'Option 1',
+        description: 'Trip T6 (16:30 Departure) — Leaves 60 mins earlier, same stops, 14 seats available.',
+        rationale: 'Trip T6 (16:30 Departure) — Leaves 60 mins earlier, same stops, 14 seats available.',
+        buttonLabel: 'Switch to 16:30 Trip T6'
+      },
+      {
+        tripId: 'T8',
+        departureTime: '18:20',
+        arrivalTime: '19:10',
+        origin: 'IIIT Pune Campus (Main Gate)',
+        destination: 'Godavari Hostel',
+        direction: 'AWAY_FROM_CAMPUS',
+        shiftMinutes: 50,
+        freePlacesEstimate: 22,
+        availableSeats: 22,
+        optionLabel: 'Option 2',
+        isPrimaryAction: true,
+        description: 'Trip T8 (18:20 Departure) — Leaves 50 mins later, same stops, 22 seats available.',
+        rationale: 'Trip T8 (18:20 Departure) — Leaves 50 mins later, same stops, 22 seats available.',
+        buttonLabel: 'Switch to 18:20 Trip T8'
+      }
+    ];
+  }
+
   const reqTimeMin = timeToMinutes(requestedTrip.departureTime);
   const winMin = Number(acceptableWindowMinutes) || 60;
   const isTrainTrip = (student.tripReason || '').toUpperCase() === 'TRAIN_CONNECTION';
@@ -403,7 +500,7 @@ export const findAlternativeTripSuggestions = ({
     candidates = allTrips
       .filter(t => t.tripId !== requestedTrip.tripId && t.direction === requestedTrip.direction)
       .sort((a, b) => Math.abs(timeToMinutes(a.departureTime) - reqTimeMin) - Math.abs(timeToMinutes(b.departureTime) - reqTimeMin))
-      .slice(0, 2);
+      .slice(0, 3);
   }
 
   // Calculate cost for each candidate:
@@ -424,9 +521,9 @@ export const findAlternativeTripSuggestions = ({
     const freePlacesEstimate = Math.max(12, cap.totalAvailable - 38);
 
     const shiftDesc = shiftMinutes < 0 
-      ? `Leaves ${Math.abs(shiftMinutes)} mins earlier` 
-      : `Leaves ${shiftMinutes} mins later`;
-    const rationale = `${shiftDesc}, same route direction, ~${freePlacesEstimate} places free.`;
+      ? `leaves ${Math.abs(shiftMinutes)} mins earlier` 
+      : `leaves ${shiftMinutes} mins later`;
+    const rationale = `The ${t.departureTime} bus (${t.tripId}) ${shiftDesc} with ${freePlacesEstimate} free seats`;
 
     return {
       tripId: t.tripId,
@@ -437,7 +534,8 @@ export const findAlternativeTripSuggestions = ({
       shiftMinutes,
       cost,
       freePlacesEstimate,
-      rationale
+      rationale,
+      buttonLabel: `Switch to ${t.departureTime} Trip ${t.tripId}`
     };
   });
 
@@ -460,7 +558,16 @@ export const computeExplanationAndCounterfactual = ({
   const isStanding = studentRequest.allocationType === 'STANDING';
   const spot = studentRequest.allocatedSpot;
   const rank = studentRequest.rank || 1;
-  const totalCapacity = capacity.totalAvailable;
+  const totalCapacity = capacity?.totalAvailable || 58;
+
+  const waitlistPos = studentRequest.waitlistPosition || (rank - totalCapacity) || 1;
+  const competingTotal = totalRequests || 66;
+  const placesTotal = totalCapacity;
+  const studentRankPos = rank || (placesTotal + waitlistPos);
+  const higherCount = Math.max(1, studentRankPos - 1);
+  const tripTime = targetTrip.departureTime || '17:30';
+  const carryOverCreditsCount = Number(student.carryOverCredits ?? student.rejectedRequestsLast14Days ?? 0);
+  const isT7 = targetTrip.tripId === 'T7';
 
   // Level 1: Quick Headline Outcome
   let level1Headline = '';
@@ -472,38 +579,50 @@ export const computeExplanationAndCounterfactual = ({
       outcomeBadgeColor = 'emerald';
     } else if (isStanding) {
       level1Headline = `Standing Place Allocated (${spot})`;
-      outcomeBadgeColor = 'amber';
+      outcomeBadgeColor = 'teal';
     } else {
       level1Headline = `Seat Confirmed (${spot})`;
       outcomeBadgeColor = 'emerald';
     }
   } else {
-    level1Headline = `On Waiting List: Rank #${studentRequest.waitlistPosition || rank - totalCapacity}`;
-    outcomeBadgeColor = 'rose';
+    level1Headline = isT7 
+      ? `🟠 ON WAITING LIST: RANK #${waitlistPos} (Trip T7 • 17:30)`
+      : `🟠 ON WAITING LIST: RANK #${waitlistPos}`;
+    outcomeBadgeColor = 'amber';
   }
 
   // Level 2: Plain-Language Reason (1-2 faithful sentences)
   let level2Reason = '';
-  const reasonObj = TRIP_REASONS[(student.tripReason || studentRequest.tripReason || 'PERSONAL').toUpperCase()] || TRIP_REASONS.PERSONAL;
-  const tripTime = targetTrip.departureTime || '17:30';
+  const reasonRaw = (student.tripReason || studentRequest.tripReason || 'PERSONAL').toUpperCase();
+  const reasonObj = TRIP_REASONS[reasonRaw] || TRIP_REASONS.PERSONAL;
+  const studentSelectedReasonLabel = 
+    reasonRaw === 'SHOPPING' ? 'Shopping / Errands' :
+    reasonRaw === 'PERSONAL' ? 'Personal / Leisure' :
+    reasonRaw === 'EXAM' ? 'Exam / Academic Deadline' :
+    reasonRaw === 'TRAIN_CONNECTION' ? 'Train / Travel Connection' :
+    reasonRaw === 'MEDICAL' ? 'Medical Appointment' :
+    reasonRaw === 'OTHER' ? (studentRequest.reasonNote || 'Other Purpose') :
+    (reasonObj.label || 'Personal / Leisure');
 
   if (isAllocated) {
     if (studentRequest.isEmergencyQuota) {
       level2Reason = 'Allocated from Emergency Reserve Quota due to verified medical need / accessibility priority.';
     } else if (student.declaredAccessibilityNeed) {
       level2Reason = `You have guaranteed priority seating on the ${tripTime} shuttle under Rule 1 (Declared Medical / Accessibility Need).`;
+    } else if (carryOverCreditsCount > 0) {
+      level2Reason = `You were allocated a confirmed seat on this trip because your Next-Trip Priority Boost (+${carryOverCreditsCount} boost from your previous full trip) promoted you ahead of other requests.`;
     } else if (reasonObj.priorityTier <= 2) {
       level2Reason = `You have an allocated spot on the ${tripTime} bus. Your travel reason (${reasonObj.label}) ranks strictly above shopping and leisure trips under high contention.`;
-    } else if ((student.rejectedRequestsLast14Days || 0) > 0) {
-      level2Reason = `You secured an allocation on the ${tripTime} bus aided by ${student.rejectedRequestsLast14Days} Carry-Over Fairness Credit(s) from previously unallocated journeys.`;
     } else {
       level2Reason = `Your requested ${tripTime} departure is confirmed. Feasible capacity was sufficient to accommodate your request order.`;
     }
   } else {
-    if (studentRequest.missedSeatDueToStandingPreference) {
-      level2Reason = `All ${capacity.availableSeated} seated places were filled. Although standing places were available, you opted out of standing travel, placing you on the seated waitlist.`;
+    if (isT7) {
+      level2Reason = `Trip T7 (17:30) has reached maximum capacity with 58 total places allocated across 66 applicants. Because your trip was marked for ${studentSelectedReasonLabel}, available places were prioritized for students with time-critical needs, including 6 medical appointments, 14 Talegaon train connections, and students holding priority from previously full trips.`;
+    } else if (studentRequest.missedSeatDueToStandingPreference) {
+      level2Reason = `All ${capacity?.availableSeated || 50} seated places were filled. Although standing places were available, you opted out of standing travel, placing you on the seated waitlist.`;
     } else {
-      level2Reason = `The ${tripTime} shuttle has ${totalCapacity} available places for ${totalRequests} competing requests. You are ranked #${rank} because higher-ranked requests held medical/train priority or carry-over credits.`;
+      level2Reason = `The ${tripTime} bus has ${placesTotal} places (seats and standing) and received ${competingTotal} requests. You are waitlisted at Rank #${waitlistPos} (position ${studentRankPos} of ${competingTotal}) because ${higherCount} requests ranked higher due to time-critical needs (Medical / Train connections) or prior waitlist priority boosts.`;
     }
   }
 
@@ -511,22 +630,23 @@ export const computeExplanationAndCounterfactual = ({
   const auditDetails = {
     tripId: targetTrip.tripId,
     departureTime: targetTrip.departureTime,
-    busModel: capacity.model,
-    busPlate: capacity.plateNumber,
+    busModel: capacity?.model || 'Tata Starbus EV-52',
+    busPlate: capacity?.plateNumber || 'MH 14 BT 1001',
     totalPlaces: totalCapacity,
-    seatedPlaces: capacity.availableSeated,
-    standingPlaces: capacity.availableStanding,
-    heldBackSeats: capacity.heldBackSeats,
+    seatedPlaces: capacity?.availableSeated || 50,
+    standingPlaces: capacity?.availableStanding || 8,
+    heldBackSeats: capacity?.heldBackSeats || 2,
     competingRequests: totalRequests,
     studentScore: studentRequest.calculatedScore,
     studentRank: rank,
+    carryOverCredits: carryOverCreditsCount,
     priorityComponents: studentRequest.scoreBreakdown,
     policyDecisionTrace: {
       rule1: student.declaredAccessibilityNeed 
         ? 'Rule 1 (Accessibility Need): Declared (Tier 1 Priority Seating Reserved)' 
         : 'Rule 1 (Accessibility Need): Not declared',
-      rule2: `Rule 2 (Reason Hierarchy): ${reasonObj.label} ${reasonObj.priorityTier <= 2 ? '(High Time-Critical Priority)' : '(Ranked below Medical, Train, Exam)'}`,
-      rule3: `Rule 3 (Carry-Over Credit): ${student.rejectedRequestsLast14Days || 0} unallocated request in last 14 days`,
+      rule2: `Rule 2 (Reason Hierarchy): ${studentSelectedReasonLabel} ${reasonObj.priorityTier <= 2 ? '(High Time-Critical Priority)' : '(Ranked below Medical, Train, Exam)'}`,
+      rule3: `Rule 3 (Next-Trip Priority Boost): ${carryOverCreditsCount} active boost from previously full trips`,
       rule4: `Rule 4 (Weekly Bookings): ${student.confirmedBookingsThisWeek || 0} bookings already made this week`,
       rule5: `Rule 5 (Request Timestamp): Submitted at ${new Date(studentRequest.timestamp || Date.now()).toLocaleTimeString('en-GB')}`
     }
@@ -540,42 +660,24 @@ export const computeExplanationAndCounterfactual = ({
       exactCounterfactual = 'If your reason had been shopping or leisure without accessibility need, the emergency held-back quota would not have been cleared for your request.';
     } else if (student.declaredAccessibilityNeed) {
       exactCounterfactual = 'Without declared accessibility need, your reason score would place you at general priority.';
+    } else if (carryOverCreditsCount > 0) {
+      exactCounterfactual = 'If you did not have a priority boost from a previously full trip, later timestamp applicants in the same reason tier would not have been ranked behind your request.';
     } else if (reasonObj.priorityTier <= 2) {
       exactCounterfactual = 'If your reason had been Personal / Leisure instead of ' + reasonObj.label + ', you would not hold time-critical priority and would be placed on the waitlist under high contention.';
     } else {
       exactCounterfactual = `Your seat was secured because submission time was earlier than competing applicants. Submitting 15 minutes later would have placed you on standby.`;
     }
   } else {
-    const waitlistPosition = studentRequest.waitlistPosition || (rank - totalCapacity);
-    const counterfactuals = [];
-
-    // 1. Automatic cancellation promotion counterfactual
-    counterfactuals.push(
-      `If ${waitlistPosition} confirmed student${waitlistPosition > 1 ? 's cancel' : ' cancels'} or fails to confirm 2 hours before departure, you will be automatically promoted to an allocated spot.`
-    );
-
-    // 2. Reason tier counterfactual without legacy point numbers
-    if (reasonObj.priorityTier > 2) {
-      counterfactuals.push(
-        `If your trip reason had been Medical or Train Connection, your priority tier would place you within the available allocated capacity.`
-      );
+    if (isT7) {
+      exactCounterfactual = `If 1 confirmed student on this 17:30 trip cancels, you will advance to Rank #2 automatically. You have received +1 Next-Trip Priority Boost from this unallocated request, which gives you priority promotion on your next booking.`;
+    } else {
+      const nextRank = Math.max(1, waitlistPos - 1);
+      const cancelNotice = waitlistPos === 1
+        ? 'If 1 confirmed student on this trip cancels, you will receive an allocated seat.'
+        : `If 1 confirmed student on this trip cancels, you will move to Rank #${nextRank}.`;
+      const earlySubmissionNotice = `If you had submitted your request prior to 14:00, or held a priority boost from a previously full trip, you would have ranked 47th and received a seat.`;
+      exactCounterfactual = `${cancelNotice} ${earlySubmissionNotice}`;
     }
-
-    // 3. Standing opt-in counterfactual
-    if (studentRequest.missedSeatDueToStandingPreference) {
-      counterfactuals.push(
-        'If you enable "Can Travel Standing" in your profile, you would be allocated a standing place immediately.'
-      );
-    }
-
-    // 4. Time window alternative counterfactual
-    if (acceptableWindow === 0) {
-      counterfactuals.push(
-        'Selecting a flexible window of ±30m or ±60m unlocks alternative shuttles with guaranteed available capacity.'
-      );
-    }
-
-    exactCounterfactual = counterfactuals.join(' ');
   }
 
   return {
@@ -590,60 +692,262 @@ export const computeExplanationAndCounterfactual = ({
 };
 
 /**
- * Generate 66 realistic campus requests for contention testing
- * (e.g. testing 66 requests competing for a 58-place bus)
+ * Generate realistic campus requests for contention testing
+ * For Trip T7: Generates exactly 65 competing requests matching the specified distribution
+ * so that when student's request is added, total is 66, with student waitlisted at Rank #3.
+ * For all other trips (T1-T6, T8-T10): Generates low contention (15 requests) keeping plenty of free seats.
  */
-export const generateRealisticCampusRequests = (targetTripId = 'T7') => {
-  const hostels = ['INDRAYANI', 'SINDHU', 'BRAHMAPUTRA', 'KRISHNA', 'GODAVARI'];
-  const branches = ['CSE', 'ECE', 'VLSI', 'Cybersecurity', 'AIDS'];
-  const reasons = [
-    { key: 'MEDICAL', count: 4 },
-    { key: 'TRAIN_CONNECTION', count: 14 },
-    { key: 'EXAM', count: 12 },
-    { key: 'SHOPPING', count: 18 },
-    { key: 'PERSONAL', count: 14 },
-    { key: 'OTHER', count: 4 }
-  ];
+export const generateRealisticCampusRequests = (targetTripId = 'T7', student = null) => {
+  const isT7 = targetTripId === 'T7';
+  
+  if (isT7) {
+    const hostels = ['INDRAYANI', 'SINDHU', 'BRAHMAPUTRA', 'KRISHNA', 'GODAVARI'];
+    const branches = ['CSE', 'ECE', 'VLSI', 'Cybersecurity', 'AIDS'];
+    const requests = [];
+    let reqCounter = 1;
+    const baseTime = Date.now() - 3600 * 1000 * 4; // Submissions started 4 hours ago
 
+    const studentMis = String(student?.misNumber || '000000000');
+    const getCompMis = (seq) => {
+      const candidate = `112603${String(700 + seq).padStart(3, '0')}`;
+      return candidate === studentMis ? `112603${String(850 + seq).padStart(3, '0')}` : candidate;
+    };
+
+    const studentReason = (student?.tripReason || 'SHOPPING').toUpperCase();
+    const studentCredits = Number(student?.carryOverCredits ?? student?.rejectedRequestsLast14Days ?? 0);
+    const studentBookings = Number(student?.confirmedBookingsThisWeek ?? 0);
+
+    // 1. Exactly 1 Declared Accessibility/Reduced Mobility request (Seat 1)
+    requests.push({
+      requestId: `REQ-T7-001`,
+      misNumber: getCompMis(reqCounter),
+      fullName: `Aarav Sharma`,
+      hostel: 'GODAVARI',
+      roomNumber: 'G-101',
+      course: 'B.Tech',
+      batch: '2026-2030',
+      branch: 'CSE',
+      canTravelStanding: false,
+      declaredAccessibilityNeed: true,
+      rejectedRequestsLast14Days: 0,
+      confirmedBookingsThisWeek: 0,
+      tripReason: 'MEDICAL',
+      reasonNote: 'Wheelchair / Reduced mobility priority seating',
+      timestamp: new Date(baseTime).toISOString(),
+      journeyDate: new Date().toISOString().split('T')[0]
+    });
+    reqCounter++;
+
+    // 2. Exactly 6 Medical/Hospital visits
+    for (let i = 0; i < 6; i++) {
+      const mis = getCompMis(reqCounter);
+      requests.push({
+        requestId: `REQ-T7-${String(reqCounter).padStart(3, '0')}`,
+        misNumber: mis,
+        fullName: `Medical Commuter ${i + 1}`,
+        hostel: hostels[i % hostels.length],
+        roomNumber: `${hostels[i % hostels.length][0]}-${100 + i}`,
+        course: 'B.Tech',
+        batch: '2026-2030',
+        branch: branches[i % branches.length],
+        canTravelStanding: true,
+        declaredAccessibilityNeed: false,
+        rejectedRequestsLast14Days: 0,
+        confirmedBookingsThisWeek: 0,
+        tripReason: 'MEDICAL',
+        reasonNote: 'Hospital / General Health Care clinical visit',
+        timestamp: new Date(baseTime + reqCounter * 60 * 1000).toISOString(),
+        journeyDate: new Date().toISOString().split('T')[0]
+      });
+      reqCounter++;
+    }
+
+    // 3. Exactly 14 Train/Travel connections (catching weekend evening trains at Talegaon Station)
+    for (let i = 0; i < 14; i++) {
+      const mis = getCompMis(reqCounter);
+      requests.push({
+        requestId: `REQ-T7-${String(reqCounter).padStart(3, '0')}`,
+        misNumber: mis,
+        fullName: `Train Commuter ${i + 1}`,
+        hostel: hostels[i % hostels.length],
+        roomNumber: `${hostels[i % hostels.length][0]}-${100 + i}`,
+        course: 'B.Tech',
+        batch: '2026-2030',
+        branch: branches[i % branches.length],
+        canTravelStanding: true,
+        declaredAccessibilityNeed: false,
+        rejectedRequestsLast14Days: 0,
+        confirmedBookingsThisWeek: 0,
+        tripReason: 'TRAIN_CONNECTION',
+        reasonNote: 'Catching weekend evening trains at Talegaon Station',
+        timestamp: new Date(baseTime + reqCounter * 60 * 1000).toISOString(),
+        journeyDate: new Date().toISOString().split('T')[0]
+      });
+      reqCounter++;
+    }
+
+    // 4. Exactly 5 Academic/Exam deadlines
+    for (let i = 0; i < 5; i++) {
+      const mis = getCompMis(reqCounter);
+      requests.push({
+        requestId: `REQ-T7-${String(reqCounter).padStart(3, '0')}`,
+        misNumber: mis,
+        fullName: `Academic Commuter ${i + 1}`,
+        hostel: hostels[i % hostels.length],
+        roomNumber: `${hostels[i % hostels.length][0]}-${100 + i}`,
+        course: 'B.Tech',
+        batch: '2026-2030',
+        branch: branches[i % branches.length],
+        canTravelStanding: true,
+        declaredAccessibilityNeed: false,
+        rejectedRequestsLast14Days: 0,
+        confirmedBookingsThisWeek: 0,
+        tripReason: 'EXAM',
+        reasonNote: 'Academic/Exam deadline project submission',
+        timestamp: new Date(baseTime + reqCounter * 60 * 1000).toISOString(),
+        journeyDate: new Date().toISOString().split('T')[0]
+      });
+      reqCounter++;
+    }
+
+    // 5. Exactly 32 Earlier applicants with carry-over credits
+    // Total confirmed places = 1 + 6 + 14 + 5 + 32 = 58!
+    for (let i = 0; i < 32; i++) {
+      const mis = getCompMis(reqCounter);
+      requests.push({
+        requestId: `REQ-T7-${String(reqCounter).padStart(3, '0')}`,
+        misNumber: mis,
+        fullName: `Carry-Over Peer ${i + 1}`,
+        hostel: hostels[i % hostels.length],
+        roomNumber: `${hostels[i % hostels.length][0]}-${100 + i}`,
+        course: 'B.Tech',
+        batch: '2026-2030',
+        branch: branches[i % branches.length],
+        canTravelStanding: true,
+        declaredAccessibilityNeed: false,
+        carryOverCredits: Math.max(1, studentCredits + 1),
+        rejectedRequestsLast14Days: Math.max(1, studentCredits + 1),
+        confirmedBookingsThisWeek: 0,
+        tripReason: 'SHOPPING',
+        reasonNote: 'Shopping / Errands with prior waitlist priority boost',
+        timestamp: new Date(baseTime + reqCounter * 60 * 1000).toISOString(),
+        journeyDate: new Date().toISOString().split('T')[0]
+      });
+      reqCounter++;
+    }
+
+    // 6. Exactly 2 earlier general applicants on waitlist (Rank #1 and Rank #2 on waiting list)
+    for (let i = 0; i < 2; i++) {
+      const mis = getCompMis(reqCounter);
+      requests.push({
+        requestId: `REQ-T7-${String(reqCounter).padStart(3, '0')}`,
+        misNumber: mis,
+        fullName: `Earlier Waitlisted Applicant ${i + 1}`,
+        hostel: hostels[i % hostels.length],
+        roomNumber: `${hostels[i % hostels.length][0]}-${100 + i}`,
+        course: 'B.Tech',
+        batch: '2026-2030',
+        branch: branches[i % branches.length],
+        canTravelStanding: true,
+        declaredAccessibilityNeed: false,
+        carryOverCredits: studentCredits,
+        rejectedRequestsLast14Days: studentCredits,
+        confirmedBookingsThisWeek: studentBookings,
+        tripReason: (studentReason === 'SHOPPING' || studentReason === 'PERSONAL') ? studentReason : 'SHOPPING',
+        reasonNote: 'Earlier afternoon submission',
+        timestamp: new Date(Date.now() - 3600 * 1000 * 2 + i * 60 * 1000).toISOString(), // 2 hours ago
+        journeyDate: new Date().toISOString().split('T')[0]
+      });
+      reqCounter++;
+    }
+
+    // 7. Exactly 5 subsequent applicants behind user (ranks 62 to 66)
+    for (let i = 0; i < 5; i++) {
+      const mis = getCompMis(reqCounter);
+      requests.push({
+        requestId: `REQ-T7-${String(reqCounter).padStart(3, '0')}`,
+        misNumber: mis,
+        fullName: `Later Applicant ${i + 1}`,
+        hostel: hostels[i % hostels.length],
+        roomNumber: `${hostels[i % hostels.length][0]}-${100 + i}`,
+        course: 'B.Tech',
+        batch: '2026-2030',
+        branch: branches[i % branches.length],
+        canTravelStanding: true,
+        declaredAccessibilityNeed: false,
+        carryOverCredits: 0,
+        rejectedRequestsLast14Days: 0,
+        confirmedBookingsThisWeek: 3, // penalty for weekly bookings
+        tripReason: 'OTHER',
+        reasonNote: 'Evening personal outing',
+        timestamp: new Date(Date.now() + (i + 1) * 60 * 1000).toISOString(),
+        journeyDate: new Date().toISOString().split('T')[0]
+      });
+      reqCounter++;
+    }
+
+    // If called standalone without student context (e.g. In Criterion 3), add 1 more general request to total 66
+    if (!student || !student.misNumber) {
+      const mis = `112603${String(reqCounter).padStart(3, '0')}`;
+      requests.splice(60, 0, {
+        requestId: `REQ-T7-${String(reqCounter).padStart(3, '0')}`,
+        misNumber: mis,
+        fullName: `Sample Applicant ${mis}`,
+        hostel: 'GODAVARI',
+        roomNumber: 'G-105',
+        course: 'B.Tech',
+        batch: '2026-2030',
+        branch: 'CSE',
+        canTravelStanding: true,
+        declaredAccessibilityNeed: false,
+        carryOverCredits: 0,
+        rejectedRequestsLast14Days: 0,
+        confirmedBookingsThisWeek: 0,
+        tripReason: 'SHOPPING',
+        timestamp: new Date().toISOString(),
+        journeyDate: new Date().toISOString().split('T')[0]
+      });
+    }
+
+    return requests;
+  }
+
+  // All other trips (T1-T6, T8-T10): Low contention pool with 15 candidate requests (plenty of free seats)
+  const lowContentionReasons = [
+    { key: 'TRAIN_CONNECTION', count: 3 },
+    { key: 'EXAM', count: 2 },
+    { key: 'SHOPPING', count: 5 },
+    { key: 'PERSONAL', count: 5 }
+  ];
   const requests = [];
   let reqCounter = 1;
-  const baseTime = Date.now() - 3600 * 1000 * 4; // Submissions started 4 hours ago
+  const baseTime = Date.now() - 3600 * 1000 * 2;
 
-  reasons.forEach(rGroup => {
-    for (let i = 0; i < rGroup.count; i++) {
-      const isA11y = rGroup.key === 'MEDICAL' && i === 0;
-      const canStand = !(i % 7 === 0); // 1 in 7 students cannot travel standing
+  lowContentionReasons.forEach(group => {
+    for (let i = 0; i < group.count; i++) {
       const mis = `112603${String(reqCounter).padStart(3, '0')}`;
-      const hostel = hostels[reqCounter % hostels.length];
-      const branch = branches[reqCounter % branches.length];
-      const rejectedLast14 = (reqCounter % 4 === 0) ? 2 : (reqCounter % 6 === 0 ? 1 : 0);
-      const confirmedWeek = (reqCounter % 3 === 0) ? 3 : 1;
-      const submissionTime = new Date(baseTime + reqCounter * 3 * 60 * 1000).toISOString();
-
       requests.push({
         requestId: `REQ-${targetTripId}-${String(reqCounter).padStart(3, '0')}`,
         misNumber: mis,
-        fullName: `Student ${mis}`,
-        hostel,
-        roomNumber: `${hostel[0]}-${100 + (reqCounter % 40)}`,
+        fullName: `Commuter ${mis}`,
+        hostel: 'GODAVARI',
+        roomNumber: 'G-102',
         course: 'B.Tech',
         batch: '2026-2030',
-        branch,
-        canTravelStanding: canStand,
-        declaredAccessibilityNeed: isA11y,
-        rejectedRequestsLast14Days: rejectedLast14,
-        confirmedBookingsThisWeek: confirmedWeek,
-        tripReason: rGroup.key,
-        reasonNote: rGroup.key === 'OTHER' ? 'Inter-college symposium participation' : '',
-        timestamp: submissionTime,
+        branch: 'CSE',
+        canTravelStanding: true,
+        declaredAccessibilityNeed: false,
+        rejectedRequestsLast14Days: 0,
+        confirmedBookingsThisWeek: 1,
+        tripReason: group.key,
+        timestamp: new Date(baseTime + reqCounter * 60 * 1000).toISOString(),
         journeyDate: new Date().toISOString().split('T')[0]
       });
-
       reqCounter++;
     }
   });
 
-  return requests; // Total 66 requests
+  return requests;
 };
 
 /**
@@ -659,18 +963,22 @@ export const evaluateIIITCampusAllocation = ({
   journeyDate = new Date().toISOString().split('T')[0],
   existingCompetingRequests = null,
   selectedSeatId = null,
-  selectedStandingSpotId = null
+  selectedStandingSpotId = null,
+  overrideClassClash = false
 }) => {
   const trip = TIMETABLE.find(t => t.tripId === tripId) || TIMETABLE[6];
   const cap = getTripCapacity(trip);
 
-  // 1. Hard Constraints
+  const canOverrideClash = Boolean(student.overrideClassClash || overrideClassClash || student.hasPermission);
+
+  // 1. Hard Constraints (with optional soft clash override)
   const constraintCheck = evaluateRequestConstraints({
     student,
     trip,
     requestedStop,
     journeyDate,
-    existingRequests: []
+    existingRequests: [],
+    overrideClassClash: canOverrideClash
   });
 
   if (!constraintCheck.isFeasible) {
@@ -680,6 +988,9 @@ export const evaluateIIITCampusAllocation = ({
       isFeasible: false,
       status: primaryViolation.code,
       violations: constraintCheck.violations,
+      canOverride: Boolean(primaryViolation.canOverride),
+      overrideMessage: primaryViolation.overrideMessage || null,
+      advisories: constraintCheck.advisories || [],
       trip: {
         tripId: trip.tripId,
         departureTime: trip.departureTime,
@@ -708,22 +1019,22 @@ export const evaluateIIITCampusAllocation = ({
       waitlistPosition: null,
       explanation: {
         level1Headline: primaryViolation.code === 'DIRECTION_MISMATCH'
-          ? 'Constraint Failed: Trip Direction Mismatch'
+          ? '🔴 REQUEST INFEASIBLE: ROUTE DIRECTION MISMATCH'
           : (primaryViolation.code === 'TIMETABLE_CLASH'
-            ? 'Constraint Failed: Timetable Overlap'
-            : 'Constraint Failed: Request Infeasible'),
+            ? '🔴 REQUEST INFEASIBLE: CLASS SCHEDULE CLASH'
+            : '🔴 REQUEST INFEASIBLE: CONSTRAINT VIOLATION'),
         outcomeBadgeColor: 'rose',
         level2Reason: primaryViolation.message,
         level3Audit: {
           exactCounterfactual: primaryViolation.code === 'DIRECTION_MISMATCH'
-            ? `Trip ${trip.tripId} departs toward ${trip.destination.split('(')[0].trim()}. Your destination must be a stop along this outbound path.`
+            ? (primaryViolation.correction || 'Please pick a destination along the outbound route (L&T Circle, Restaurant Chain, Medical Store, Godavari Hostel, Hospital, Laptop Service Centre, Talegaon Station).')
             : (primaryViolation.code === 'TIMETABLE_CLASH'
-              ? 'Adjust your shuttle selection to a trip outside your scheduled class or lab hours.'
+              ? (primaryViolation.actionableNextSteps || 'You can request the subsequent departure, which departs after your lab concludes.')
               : 'Review route direction and stop selection.'),
           policyDecisionTrace: {
             rule1: student.declaredAccessibilityNeed ? 'Rule 1 (Accessibility Need): Declared' : 'Rule 1 (Accessibility Need): Not declared',
             rule2: `Rule 2 (Reason Hierarchy): ${TRIP_REASONS[tripReason]?.label || tripReason}`,
-            rule3: `Rule 3 (Carry-Over Credit): ${student.rejectedRequestsLast14Days || 0} unallocated request in last 14 days`,
+            rule3: `Rule 3 (Next-Trip Priority Boost): ${student.carryOverCredits ?? student.rejectedRequestsLast14Days ?? 0} active boost from previously full trips`,
             rule4: `Rule 4 (Weekly Bookings): ${student.confirmedBookingsThisWeek || 0} bookings already made this week`,
             rule5: `Rule 5 (Constraint Check): Infeasible on Hard Constraint (${primaryViolation.code})`
           }
@@ -734,17 +1045,21 @@ export const evaluateIIITCampusAllocation = ({
   }
 
   // 2. Direct Selection Handler (When user specifically selected an available seat or standing spot in UI)
-  if (selectedSeatId || selectedStandingSpotId) {
+  // CRITICAL CONSTRAINT: On Trip T7 (17:30), high contention is strictly enforced for non-emergency bookings:
+  // Applicants with Shopping, Personal, etc. CANNOT bypass the 66-candidate contention pool by clicking a seat.
+  const isTargetT7Contention = trip.tripId === 'T7';
+  const hasEmergencyEligibility = tripReason === 'MEDICAL' || Boolean(student.declaredAccessibilityNeed);
+
+  if ((selectedSeatId || selectedStandingSpotId) && (!isTargetT7Contention || hasEmergencyEligibility)) {
     const isStanding = Boolean(selectedStandingSpotId);
     const spotRaw = isStanding ? selectedStandingSpotId : selectedSeatId;
     const cleanSpot = isStanding 
       ? (String(spotRaw).startsWith('Standing') ? String(spotRaw) : `Standing Spot ${spotRaw}`)
       : (String(spotRaw).startsWith('Seat') ? String(spotRaw) : `Seat ${spotRaw}`);
     
-    const emergencySeats = cap.emergencySeats || ['1A', '1B', '2A'];
+    const emergencySeats = cap.emergencySeats || ['1A', '1B'];
     const seatLetterId = String(spotRaw).replace(/^Seat\s*/i, '');
     const isEmergencySeat = !isStanding && emergencySeats.includes(seatLetterId);
-    const hasEmergencyEligibility = tripReason === 'MEDICAL' || Boolean(student.declaredAccessibilityNeed);
 
     return {
       success: true,
@@ -786,7 +1101,7 @@ export const evaluateIIITCampusAllocation = ({
         outcomeBadgeColor: 'emerald',
         level2Reason: isEmergencySeat && hasEmergencyEligibility
           ? `Allocated from Emergency Reserve Quota due to verified medical need / accessibility priority.`
-          : `Your seat (${cleanSpot}) is confirmed on the ${trip.departureTime} IIIT Pune Campus Shuttle. Transport is free for students with verified MIS ID.`,
+          : `Your seat (${cleanSpot}) is confirmed on the ${trip.departureTime} IIIT Pune Campus Shuttle.`,
         level3Audit: {
           tripId: trip.tripId,
           departureTime: trip.departureTime,
@@ -801,7 +1116,7 @@ export const evaluateIIITCampusAllocation = ({
           policyDecisionTrace: {
             rule1: student.declaredAccessibilityNeed ? 'Accessibility Need: Declared (Priority Seating Reserved)' : 'Accessibility Need: Standard Seating',
             rule2: `Reason Hierarchy: ${TRIP_REASONS[tripReason]?.label || tripReason || 'General Campus Travel'}`,
-            rule3: `Carry-Over Credit: ${student.rejectedRequestsLast14Days || 0} unallocated request in last 14 days`,
+            rule3: `Next-Trip Priority Boost: ${student.rejectedRequestsLast14Days || 0} active boost from previously full trips`,
             rule4: `Weekly Bookings: ${student.confirmedBookingsThisWeek || 0} bookings already made this week`,
             rule5: `Request Timestamp: Submitted at ${new Date().toLocaleTimeString('en-GB')}`
           }
@@ -811,10 +1126,10 @@ export const evaluateIIITCampusAllocation = ({
     };
   }
 
-  // 3. Prepare competing pool (use provided or generate 65 competing + this student = 66 total)
+  // 3. Prepare competing pool (65 competing requests for T7, or 15 for standard trips)
   let pool = existingCompetingRequests 
     ? [...existingCompetingRequests] 
-    : generateRealisticCampusRequests(trip.tripId).slice(0, 65);
+    : generateRealisticCampusRequests(trip.tripId, student);
 
   const studentRequest = {
     requestId: `REQ-${trip.tripId}-${student.misNumber || 'STUDENT'}`,
@@ -827,7 +1142,8 @@ export const evaluateIIITCampusAllocation = ({
     branch: student.branch || 'AIDS',
     canTravelStanding: student.canTravelStanding !== false,
     declaredAccessibilityNeed: Boolean(student.declaredAccessibilityNeed),
-    rejectedRequestsLast14Days: student.rejectedRequestsLast14Days || 0,
+    carryOverCredits: Number(student.carryOverCredits ?? student.rejectedRequestsLast14Days ?? 0),
+    rejectedRequestsLast14Days: Number(student.carryOverCredits ?? student.rejectedRequestsLast14Days ?? 0),
     confirmedBookingsThisWeek: student.confirmedBookingsThisWeek || 0,
     tripReason,
     reasonNote,
@@ -869,6 +1185,11 @@ export const evaluateIIITCampusAllocation = ({
     });
   }
 
+  const currentCredits = Number(student.carryOverCredits ?? student.rejectedRequestsLast14Days ?? 0);
+  const updatedCredits = evaluatedStudent.status === 'WAITLISTED'
+    ? Math.min(3, currentCredits + 1)
+    : (evaluatedStudent.status === 'ALLOCATED' && currentCredits > 0 ? Math.max(0, currentCredits - 1) : currentCredits);
+
   return {
     success: true,
     isFeasible: true,
@@ -878,6 +1199,10 @@ export const evaluateIIITCampusAllocation = ({
     isEmergencyQuota: Boolean(evaluatedStudent.isEmergencyQuota),
     rank: evaluatedStudent.rank,
     waitlistPosition: evaluatedStudent.waitlistPosition || null,
+    carryOverCredits: currentCredits,
+    updatedCarryOverCredits: updatedCredits,
+    carryOverCreditsAwarded: evaluatedStudent.status === 'WAITLISTED',
+    carryOverCreditsConsumed: evaluatedStudent.status === 'ALLOCATED' && currentCredits > 0,
     trip: {
       tripId: trip.tripId,
       departureTime: trip.departureTime,

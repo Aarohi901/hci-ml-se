@@ -16,23 +16,23 @@ export const PopularRoutesStrip = ({ onSelectRoute }) => {
       toTitle: 'Talegaon Station', 
       from: 'IIIT Pune Campus (Main Gate)', 
       to: 'Talegaon Station', 
-      fare: 'Free Campus Pass', 
-      time: 'T3, T5, T7, T10 (Station Express)' 
+      tag: 'Station Express', 
+      time: 'T3, T5, T7, T10' 
     },
     { 
       fromTitle: 'Talegaon Station', 
       toTitle: 'Campus Main Gate', 
       from: 'Talegaon Station', 
       to: 'IIIT Pune Campus (Main Gate)', 
-      fare: 'Free Campus Pass', 
-      time: 'T4, T6, T8 (Station Return)' 
+      tag: 'Station Return', 
+      time: 'T4, T6, T8' 
     },
     { 
       fromTitle: 'Campus Main Gate', 
       toTitle: 'Godavari Hostel', 
       from: 'IIIT Pune Campus (Main Gate)', 
       to: 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)', 
-      fare: 'Free Campus Pass', 
+      tag: 'Hostel Outbound', 
       time: 'T1, T3, T5, T7, T10' 
     },
     { 
@@ -40,7 +40,7 @@ export const PopularRoutesStrip = ({ onSelectRoute }) => {
       toTitle: 'Campus Main Gate', 
       from: 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)', 
       to: 'IIIT Pune Campus (Main Gate)', 
-      fare: 'Free Campus Pass', 
+      tag: 'Campus Inbound', 
       time: 'T2, T4, T6, T8, T9' 
     },
     { 
@@ -48,16 +48,16 @@ export const PopularRoutesStrip = ({ onSelectRoute }) => {
       toTitle: 'Talegaon Station', 
       from: 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)', 
       to: 'Talegaon Station', 
-      fare: 'Free Campus Pass', 
-      time: 'Hostel ➔ Station Link' 
+      tag: 'Station Link', 
+      time: 'Regular Service' 
     },
     { 
       fromTitle: 'Campus Main Gate', 
       toTitle: 'Medical Store / Hospital', 
       from: 'IIIT Pune Campus (Main Gate)', 
       to: 'Medical Store', 
-      fare: 'Free Campus Pass', 
-      time: 'Healthcare Stop' 
+      tag: 'Healthcare Stop', 
+      time: 'Priority Route' 
     }
   ];
 
@@ -127,7 +127,7 @@ export const PopularRoutesStrip = ({ onSelectRoute }) => {
                 <span>{route.toTitle}</span>
               </div>
               <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
-                <span className="font-semibold text-emerald-600">{route.fare}</span>
+                <span className="font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded text-[10px]">{route.tag}</span>
                 <span>•</span>
                 <span>{route.time}</span>
               </div>

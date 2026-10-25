@@ -11,7 +11,6 @@ import { BusSearchRibbon } from '../../components/passenger/BusSearchRibbon';
 import { PopularRoutesStrip } from '../../components/passenger/PopularRoutesStrip';
 import { BusSearchResults } from '../../components/passenger/BusSearchResults';
 import { DeckSeatPicker } from '../../components/passenger/DeckSeatPicker';
-import { BookingCheckoutModal } from '../../components/passenger/BookingCheckoutModal';
 import { TicketReceiptModal } from '../../components/passenger/TicketReceiptModal';
 import { OperatorBadge } from '../../components/passenger/OperatorBadge';
 import { useTranslation } from '../../context/TranslationContext';
@@ -82,16 +81,14 @@ export const HomePage = () => {
     setSelectedBusForDeck(bus);
   };
 
-  // Step 2: From Deck Seat Picker ➔ Navigate to /checkout Page
-  const handleProceedToCheckout = (reservationData) => {
+  // Step 2: From Deck Seat Picker ➔ Direct to Booking Confirmation
+  const handleProceedToCheckout = (bookingRecord) => {
     setSelectedBusForDeck(null);
-    navigate('/checkout');
-  };
-
-  // Step 3: From Checkout Sandbox ➔ Confirmed Ticket Receipt
-  const handleBookingSuccess = (bookingRecord) => {
-    setCheckoutReservation(null);
-    setConfirmedBooking(bookingRecord);
+    if (bookingRecord?.pnr) {
+      navigate(`/booking-confirmation?pnr=${bookingRecord.pnr}`);
+    } else {
+      navigate('/booking-confirmation');
+    }
   };
 
   return (
@@ -207,11 +204,11 @@ export const HomePage = () => {
 
                   <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider" data-i18n="priceCol">
-                        {t('priceCol')}
+                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">
+                        Transit Service
                       </span>
-                      <span className="text-xl font-bold text-slate-900 tabular-nums">
-                        {bus.fare.includes('Free') ? 'FREE' : '₹25'}
+                      <span className="text-xs font-bold text-[#075985] bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200 inline-block mt-0.5">
+                        Trip {bus.id} ({bus.departureTime} Departure)
                       </span>
                     </div>
                     <button
@@ -240,15 +237,7 @@ export const HomePage = () => {
         onProceedToCheckout={handleProceedToCheckout}
       />
 
-      {/* WORKFLOW STEP 2: Checkout & Reservation Safeguards Modal */}
-      <BookingCheckoutModal
-        reservationData={checkoutReservation}
-        isOpen={!!checkoutReservation}
-        onClose={() => setCheckoutReservation(null)}
-        onBookingSuccess={handleBookingSuccess}
-      />
-
-      {/* WORKFLOW STEP 3: Confirmed Ticket Receipt Modal */}
+      {/* WORKFLOW STEP 2: Confirmed Ticket Receipt Modal */}
       <TicketReceiptModal
         booking={confirmedBooking}
         isOpen={!!confirmedBooking}

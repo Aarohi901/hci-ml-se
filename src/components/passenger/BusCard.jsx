@@ -68,11 +68,11 @@ export const BusCard = ({ bus, onOpenExplanation, onRequestSeat, onTrackBus }) =
 
           <div className="space-y-0.5">
             <div className="flex items-center gap-1.5 text-xs text-slate-700 font-extrabold">
-              <IndianRupee className="w-4 h-4 text-[#065F46]" aria-hidden="true" />
-              <span>Standard Fare</span>
+              <ShieldCheck className="w-4 h-4 text-emerald-700" aria-hidden="true" />
+              <span>Service Type</span>
             </div>
-            <div className="text-base font-black text-[#065F46]">{bus.fare}</div>
-            <div className="text-xs text-slate-600 font-bold">Per Passenger</div>
+            <div className="text-base font-black text-slate-800">Institute Amenity</div>
+            <div className="text-xs text-slate-600 font-bold">Campus Shuttle</div>
           </div>
         </div>
 

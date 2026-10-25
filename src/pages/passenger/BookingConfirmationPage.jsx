@@ -143,7 +143,7 @@ export const BookingConfirmationPage = () => {
 PNR Reference     : ${booking.pnr}
 Booking ID        : ${booking.bookingId || 'BK-2026-9921'}
 Booking Date & Time: ${booking.bookingDate || new Date().toLocaleDateString()} at ${booking.bookingTime || '14:25 IST'}
-Status            : ${booking.status || 'CONFIRMED'} (Paid)
+Status            : ${booking.status || 'CONFIRMED'}
 
 PRIORITY ALLOCATION & PURPOSE:
 Travel Purpose    : ${purposeObj.label}
@@ -151,24 +151,21 @@ Priority Status   : ${isHighPriority ? 'High Priority Passenger' : 'Standard Com
 
 TRANSIT JOURNEY DETAILS:
 Route             : ${booking.routeNumber}
-Operator          : ${booking.operator || 'SmartBus City Transit'}
-Bus Vehicle Reg.  : ${booking.busPlate || 'MH 14 BT 3312'}
-Bus Class         : ${booking.busClass || 'AC Express Standard'}
+Operator          : ${booking.operator || 'IIIT Pune Transport Department'}
+Bus Vehicle Reg.  : ${booking.busPlate || 'MH 14 BT 1001'}
+Bus Class         : ${booking.busClass || 'Tata Starbus EV-52'}
 Departure Stop    : ${booking.origin} (${booking.boardingTime || '17:30'})
 Boarding Bay      : ${booking.boardingPoint || 'Main Terminal'} (${booking.boardingPointLandmark || 'Main Platform'})
 Arrival Stop      : ${booking.destination} (${booking.droppingTime || '18:15'})
 Dropping Point    : ${booking.droppingPoint || 'Central Terminal'}
 
 PASSENGER & SEAT MANIFEST:
-${(booking.passengers || []).map((p, i) => `[Seat ${p.seatId} - ${p.deck || 'Lower'} Deck] ${p.name} | Age: ${p.age} yrs | Gender: ${p.gender}`).join('\n')}
+${(booking.passengers || []).map((p, i) => `[Seat ${p.seatId} - ${p.deck || 'Lower'} Deck] ${p.name} | MIS: ${p.misNumber || booking.misNumber || 'N/A'}`).join('\n')}
 
-FARE & PAYMENT SUMMARY:
-Base Fare         : ₹${booking.fareBreakdown?.baseFare || 50}
-Discounts Applied : ₹${booking.fareBreakdown?.discount || 0}
-Transit GST (5%)  : ₹${booking.fareBreakdown?.gst || 3}
-Total Paid Amount : ₹${booking.fareBreakdown?.total || 53}
-Payment Mode      : ${booking.paymentMethod || 'Paid via UPI / Card Sandbox'}
-Transaction Token : ${booking.idempotencyToken || 'N/A'}
+TRANSIT VERIFICATION:
+Service Type      : IIIT Pune Campus Shuttle Amenity
+Student MIS       : ${booking.misNumber || '112603001'}
+Hostel Terminus   : ${booking.studentProfile?.hostel || 'Godavari Hostel'}
 
 COMMUTER SUPPORT:
 Helpline Number   : 1800-200-BUSES (Toll Free, 24/7)
@@ -318,14 +315,21 @@ Thank you for commuting with BusMate! Have a safe and timely trip!
                 {t('ticket.official_pass')}
               </span>
               
-              {/* Confirmed Live Badge with Pulsing Green Dot */}
-              <span className="bg-emerald-500/20 text-emerald-200 text-xs font-bold px-2.5 py-0.5 rounded-full border border-emerald-400/30 inline-flex items-center gap-1.5">
-                <span className="relative flex h-2 w-2 shrink-0">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+              {/* Status Badge: Amber for Waitlisted, Emerald for Confirmed */}
+              {booking.status === 'Waitlisted' ? (
+                <span className="bg-amber-500/30 text-amber-100 text-xs font-bold px-2.5 py-0.5 rounded-full border border-amber-300/40 inline-flex items-center gap-1.5 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span>On Waiting List (Rank #3)</span>
                 </span>
-                <span data-i18n="ticket.confirmed_badge">{t('ticket.confirmed_badge')}</span>
-              </span>
+              ) : (
+                <span className="bg-emerald-500/20 text-emerald-200 text-xs font-bold px-2.5 py-0.5 rounded-full border border-emerald-400/30 inline-flex items-center gap-1.5">
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                  </span>
+                  <span data-i18n="ticket.confirmed_badge">{t('ticket.confirmed_badge')}</span>
+                </span>
+              )}
             </div>
 
             <p className="text-xs text-sky-100 font-medium pt-0.5">
@@ -549,8 +553,12 @@ Thank you for commuting with BusMate! Have a safe and timely trip!
                         )}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                          Confirmed
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${
+                          booking.status === 'Waitlisted'
+                            ? 'text-amber-800 bg-amber-50 border-amber-300'
+                            : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                        }`}>
+                          {booking.status === 'Waitlisted' ? 'Waitlisted (#3)' : 'Confirmed'}
                         </span>
                       </td>
                     </tr>
@@ -633,43 +641,44 @@ Thank you for commuting with BusMate! Have a safe and timely trip!
 
         </div>
 
-        {/* PAYMENT & FARE BREAKDOWN SUMMARY */}
+        {/* TRANSIT & STUDENT AMENITY VERIFICATION */}
         <div className="p-6 sm:p-8 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b border-slate-200">
           
           <div className="space-y-1.5 text-xs text-slate-600">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Payment Status:</span>
-              <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[11px]">
-                {booking.paymentMethod || 'Paid via UPI (Sandbox)'}
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Transit Verification:</span>
+              <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[11px] flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Authorized Institute Transit Pass</span>
               </span>
             </div>
             <div className="text-[11px] text-slate-500 font-mono">
-              Transaction ID: <span className="font-semibold text-slate-700">{booking.idempotencyToken || 'TXN-99218204'}</span>
+              Student MIS ID: <span className="font-semibold text-slate-700">{booking.passengerInfo?.misId || booking.passengers?.[0]?.misId || booking.misNumber || '202301045'}</span>
             </div>
             <div className="text-[11px] text-slate-400 font-normal">
-              Digital receipt generated automatically under Section 65B of Evidence Act.
+              Digital transit pass validated under IIIT Pune Campus Mobility & Transit Regulations.
             </div>
           </div>
 
-          <div className="w-full sm:w-72 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1.5">
+          <div className="w-full sm:w-80 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-2">
             <div className="text-xs text-slate-600 flex justify-between">
-              <span>Base Fare:</span>
-              <span className="font-semibold text-slate-800 tabular-nums">₹{booking.fareBreakdown?.baseFare || 50}</span>
+              <span>Service Type:</span>
+              <span className="font-semibold text-slate-800">Campus Shuttle Amenity</span>
             </div>
-            {booking.fareBreakdown?.discount > 0 && (
-              <div className="text-xs text-emerald-600 font-semibold flex justify-between">
-                <span>Applied Discount:</span>
-                <span className="tabular-nums">-₹{booking.fareBreakdown?.discount}</span>
-              </div>
-            )}
             <div className="text-xs text-slate-600 flex justify-between">
-              <span>Transit GST (5%):</span>
-              <span className="font-semibold text-slate-800 tabular-nums">₹{booking.fareBreakdown?.gst || 3}</span>
+              <span>Allocation Policy:</span>
+              <span className="font-semibold text-emerald-700">Deterministic Priority</span>
             </div>
-            <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline">
-              <span className="text-xs font-bold text-slate-900 uppercase">Total Paid:</span>
-              <span className="text-2xl font-bold text-[#075985] tabular-nums tracking-tight">
-                ₹{booking.fareBreakdown?.total || 53}
+            <div className="text-xs text-slate-600 flex justify-between">
+              <span>Next-Trip Priority:</span>
+              <span className="font-semibold text-amber-700 font-mono">
+                {Number(booking.carryOverCredits || 0) > 0 ? `+${booking.carryOverCredits} Active Priority Boost` : 'None active'}
+              </span>
+            </div>
+            <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
+              <span className="text-[11px] font-bold text-slate-500 uppercase">Shuttle Amenity</span>
+              <span className="text-xs font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-200">
+                Campus Transit Amenity
               </span>
             </div>
           </div>
@@ -683,10 +692,10 @@ Thank you for commuting with BusMate! Have a safe and timely trip!
             <span>Important Commuter Boarding Instructions</span>
           </div>
           <ul className="list-disc list-inside space-y-1 text-slate-600 text-[11px] font-medium leading-relaxed">
-            <li>Please arrive at the boarding terminal at least <strong>15 minutes prior to departure</strong>.</li>
-            <li>Passengers must present this digital E-ticket (or printed copy) along with a valid government photo ID upon request.</li>
-            <li>Wheelchair-accessible ramps and dedicated luggage bays are available at Bay 3 for this low-floor service.</li>
-            <li>Cancellation and full refunds are permitted up to 2 hours before scheduled departure via <strong>My Bookings</strong>.</li>
+            <li>Please arrive at the boarding terminal at least <strong>10 minutes prior to departure</strong>.</li>
+            <li>Passengers must present this digital boarding pass along with valid student MIS ID upon request.</li>
+            <li>Wheelchair-accessible ramps and dedicated priority seating are available on all institute shuttle trips.</li>
+            <li>Cancellation is permitted up to 15 minutes before scheduled departure via <strong>My Bookings</strong> to release capacity for waitlisted peers.</li>
           </ul>
         </div>
 

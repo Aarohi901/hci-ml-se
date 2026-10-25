@@ -4,22 +4,35 @@ import { DEMO_STUDENTS, getAvailableBranches } from '../data/iiitBusData';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  // Read existing session from localStorage, fallback to first demo student
+  // Read existing session from localStorage, fallback to first demo student with clean timetable
   const [user, setUser] = useState(() => {
     try {
       const stored = localStorage.getItem('iiit_campus_student');
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed) {
+          // Immediately purge any hardcoded conflicting timetable slots
+          parsed.weeklyClassTimetable = [];
+          return parsed;
+        }
+      }
       // Legacy fallback check
       const legacy = localStorage.getItem('smartbus_auth_user');
       if (legacy) {
         const parsed = JSON.parse(legacy);
-        if (parsed.misNumber) return parsed;
+        if (parsed && parsed.misNumber) {
+          parsed.weeklyClassTimetable = [];
+          return parsed;
+        }
       }
     } catch (e) {
       console.error('Error reading auth session:', e);
     }
-    // Default to Aditya Verma (B.Tech 2026-2030 AIDS)
-    return DEMO_STUDENTS[0];
+    // Default to Aditya Verma (B.Tech 2026-2030 AIDS) with clean empty timetable
+    return {
+      ...DEMO_STUDENTS[0],
+      weeklyClassTimetable: []
+    };
   });
 
   // Modal State
@@ -77,14 +90,13 @@ export const AuthProvider = ({ children }) => {
         declaredAccessibilityNeed: false,
         rejectedRequestsLast14Days: 0,
         confirmedBookingsThisWeek: 1,
-        weeklyClassTimetable: [
-          { day: 'Wednesday', startTime: '13:00', endTime: '15:30', subject: 'Machine Learning Lab' }
-        ]
+        weeklyClassTimetable: []
       };
     }
 
     const sessionData = {
       ...foundStudent,
+      weeklyClassTimetable: [],
       id: `usr_${foundStudent.misNumber}`,
       token: `iiit_tok_${Math.random().toString(36).substring(2, 10)}`,
       role: 'student',
@@ -107,6 +119,7 @@ export const AuthProvider = ({ children }) => {
     const found = DEMO_STUDENTS.find(s => s.misNumber === misNumber) || DEMO_STUDENTS[0];
     const sessionData = {
       ...found,
+      weeklyClassTimetable: [],
       id: `usr_${found.misNumber}`,
       token: `iiit_tok_${Math.random().toString(36).substring(2, 10)}`,
       role: 'student',
@@ -130,6 +143,22 @@ export const AuthProvider = ({ children }) => {
     });
   }, []);
 
+  // 1-Click action to purge all class timetable clashes across session and localStorage
+  const clearClassTimetable = useCallback(() => {
+    setUser(prev => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        weeklyClassTimetable: []
+      };
+      try {
+        localStorage.setItem('iiit_campus_student', JSON.stringify(updated));
+        localStorage.setItem('smartbus_auth_user', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  }, []);
+
   // Signup / Register handler with strict dependent branch enforcement
   const signup = useCallback(async ({ 
     misNumber, 
@@ -139,7 +168,7 @@ export const AuthProvider = ({ children }) => {
     course = 'B.Tech', 
     batch = '2026-2030', 
     branch = 'AIDS', 
-    canTravelStanding = true,
+    canTravelStanding = true, 
     declaredAccessibilityNeed = false 
   }) => {
     // Validate dependent branch
@@ -159,9 +188,7 @@ export const AuthProvider = ({ children }) => {
       declaredAccessibilityNeed: Boolean(declaredAccessibilityNeed),
       rejectedRequestsLast14Days: 0,
       confirmedBookingsThisWeek: 0,
-      weeklyClassTimetable: [
-        { day: 'Monday', startTime: '09:00', endTime: '12:00', subject: 'Programming Lab' }
-      ],
+      weeklyClassTimetable: [],
       token: `iiit_tok_${Math.random().toString(36).substring(2, 10)}`,
       role: 'student',
       loginTime: new Date().toISOString()
@@ -197,6 +224,7 @@ export const AuthProvider = ({ children }) => {
     login,
     switchDemoStudent,
     updateStudentProfile,
+    clearClassTimetable,
     signup,
     logout
   };

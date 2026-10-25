@@ -120,16 +120,54 @@ export const PassengerDetailsForm = ({
         </div>
       </div>
 
-      {/* TIMETABLE CLASH WARNING (IF DETECTED) */}
+      {/* TIMETABLE CLASH WARNING WITH SOFT OVERRIDE (SECTION 13.4) */}
       {clashResult.hasClash && (
-        <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3 text-xs text-amber-900 animate-fade-in">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <strong className="font-bold text-amber-950 block">Class Schedule Conflict Detected!</strong>
-            <p>{clashResult.explanation}</p>
-            <p className="text-[11px] text-amber-800">
-              Note: Automatic placement on this trip is blocked to ensure academic attendance. Please choose a trip outside your scheduled hours.
-            </p>
+        <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-xl space-y-2.5 text-xs text-amber-900 animate-fade-in">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <strong className="font-bold text-amber-950 block">⚠️ Class Schedule Conflict Warning</strong>
+              <p>{clashResult.explanation}</p>
+              <p className="text-[11px] text-amber-800">
+                Warning: Trip {selectedTrip?.tripId || ''} ({selectedTrip?.departureTime || ''}) overlaps with your listed {clashResult.clashingSlot?.subject || 'Class'}. Do you still wish to request this shuttle?
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-amber-200">
+            <label className="flex items-center gap-2 cursor-pointer select-none font-semibold text-amber-950">
+              <input
+                type="checkbox"
+                id="chk-passenger-override-clash"
+                checked={Boolean(passenger.overrideClassClash)}
+                onChange={(e) => onChange({ ...passenger, overrideClassClash: e.target.checked })}
+                className="w-4 h-4 rounded text-amber-600 border-amber-300 focus:ring-amber-500 cursor-pointer"
+              />
+              <span>Yes, I have permission / lab is cancelled today</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  const raw = localStorage.getItem('iiit_campus_student');
+                  if (raw) {
+                    const parsed = JSON.parse(raw);
+                    parsed.weeklyClassTimetable = [];
+                    localStorage.setItem('iiit_campus_student', JSON.stringify(parsed));
+                  }
+                  const rawLegacy = localStorage.getItem('smartbus_auth_user');
+                  if (rawLegacy) {
+                    const parsed = JSON.parse(rawLegacy);
+                    parsed.weeklyClassTimetable = [];
+                    localStorage.setItem('smartbus_auth_user', JSON.stringify(parsed));
+                  }
+                } catch (e) {}
+                onChange({ ...passenger, weeklyClassTimetable: [], overrideClassClash: true });
+              }}
+              className="text-[11px] font-bold text-amber-800 hover:text-amber-950 underline self-start sm:self-auto cursor-pointer"
+            >
+              Clear All Class Clashes
+            </button>
           </div>
         </div>
       )}

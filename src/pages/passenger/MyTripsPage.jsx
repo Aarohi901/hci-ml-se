@@ -120,7 +120,7 @@ export const MyTripsPage = () => {
               policyDecisionTrace: {
                 rule1: 'Accessibility Need: Not declared',
                 rule2: 'Reason Hierarchy: Medical (Tier 1 Priority - Emergency Quota eligible)',
-                rule3: 'Carry-Over Credit: 1 unallocated request in last 14 days',
+                rule3: 'Next-Trip Priority Boost: 1 unallocated request in last 14 days',
                 rule4: 'Weekly Bookings: 2 bookings already made this week',
                 rule5: 'Request Timestamp: Submitted at 14:22:10'
               }
@@ -165,7 +165,7 @@ export const MyTripsPage = () => {
               policyDecisionTrace: {
                 rule1: 'Accessibility Need: Not declared',
                 rule2: 'Reason Hierarchy: Train Connection (Tier 2 Priority)',
-                rule3: 'Carry-Over Credit: 1 unallocated request in last 14 days',
+                rule3: 'Next-Trip Priority Boost: 1 unallocated request in last 14 days',
                 rule4: 'Weekly Bookings: 2 bookings already made this week',
                 rule5: 'Request Timestamp: Submitted at 09:15:40'
               }
@@ -210,7 +210,7 @@ export const MyTripsPage = () => {
               policyDecisionTrace: {
                 rule1: 'Accessibility Need: Not declared',
                 rule2: 'Reason Hierarchy: Shopping / Errands (Ranked below Medical, Train, Exam)',
-                rule3: 'Carry-Over Credit: 1 unallocated request in last 14 days',
+                rule3: 'Next-Trip Priority Boost: 1 unallocated request in last 14 days',
                 rule4: 'Weekly Bookings: 2 bookings already made this week',
                 rule5: 'Request Timestamp: Submitted at 15:10:02'
               }
@@ -255,7 +255,7 @@ export const MyTripsPage = () => {
               policyDecisionTrace: {
                 rule1: 'Accessibility Need: Not declared',
                 rule2: 'Reason Hierarchy: Train Connection Return',
-                rule3: 'Carry-Over Credit: 0 active at time of booking',
+                rule3: 'Next-Trip Priority Boost: 0 active at time of booking',
                 rule4: 'Weekly Bookings: 1 booking already made this week',
                 rule5: 'Request Timestamp: Submitted at 11:45:12'
               }
@@ -300,7 +300,7 @@ export const MyTripsPage = () => {
               policyDecisionTrace: {
                 rule1: 'Accessibility Need: Not declared',
                 rule2: 'Reason Hierarchy: Exam / Academic (Tier 3 Priority)',
-                rule3: 'Carry-Over Credit: 0 active at time of booking',
+                rule3: 'Next-Trip Priority Boost: 0 active at time of booking',
                 rule4: 'Weekly Bookings: 0 bookings this week',
                 rule5: 'Request Timestamp: Submitted at 11:05:00'
               }
@@ -343,7 +343,7 @@ export const MyTripsPage = () => {
               policyDecisionTrace: {
                 rule1: 'Accessibility Need: Not declared',
                 rule2: 'Reason Hierarchy: Personal',
-                rule3: 'Carry-Over Credit: 0 used',
+                rule3: 'Next-Trip Priority Boost: 0 used',
                 rule4: 'Weekly Bookings: Quota restored upon timely cancellation',
                 rule5: 'Request Timestamp: Cancelled at 08:35:00'
               }
@@ -386,7 +386,7 @@ export const MyTripsPage = () => {
               policyDecisionTrace: {
                 rule1: 'Accessibility Need: Not declared',
                 rule2: 'Reason Hierarchy: General / Leisure',
-                rule3: 'Carry-Over Credit: Ineligible on hard constraint failure',
+                rule3: 'Next-Trip Priority Boost: Ineligible on hard constraint failure',
                 rule4: 'Weekly Bookings: Not decremented',
                 rule5: 'Request Timestamp: Submitted at 07:30:15'
               }
@@ -528,7 +528,7 @@ export const MyTripsPage = () => {
                   policyDecisionTrace: {
                     rule1: 'Accessibility Need: Preserved',
                     rule2: 'Reason Hierarchy: Cancelled',
-                    rule3: 'Carry-Over Credit: Intact',
+                    rule3: 'Next-Trip Priority Boost: Intact',
                     rule4: 'Weekly Bookings: Quota restored',
                     rule5: `Request Timestamp: Cancelled at ${new Date().toLocaleTimeString()}`
                   }
@@ -669,11 +669,11 @@ export const MyTripsPage = () => {
           </span>
         </div>
 
-        {/* Carry-Over Credits (Active: X/3) */}
+        {/* Next-Trip Priority Boosts (Active: X/3) */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border-2 border-purple-200 bg-purple-50/40 shadow-2xs space-y-1 col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-purple-800 block">
-              Carry-Over Credits
+              Priority Boosts
             </span>
             <Award className="w-4 h-4 text-purple-600" />
           </div>
@@ -681,7 +681,7 @@ export const MyTripsPage = () => {
             Active: {stats.carryOverCredits}/3
           </div>
           <span className="text-[10px] text-purple-600 font-medium block leading-tight">
-            Section 5.3: Prioritizes unserved peak requests
+            Prioritizes students who missed previously full trips
           </span>
         </div>
 

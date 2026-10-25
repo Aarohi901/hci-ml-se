@@ -203,7 +203,7 @@ export const TIMETABLE = [
     departureTime: '17:30',
     arrivalTime: '18:20',
     origin: 'IIIT Pune Campus (Main Gate)',
-    destination: 'Talegaon Station',
+    destination: 'Godavari Boys Hostel (Off-Campus Terminus & Railway Station Connection Point)',
     direction: 'AWAY_FROM_CAMPUS',
     runtimeMinutes: 50,
     defaultBusId: 'BUS-01',
@@ -211,10 +211,12 @@ export const TIMETABLE = [
     capacity: 60,
     seatsCapacity: 52,
     standingCapacity: 8,
-    heldBackSeats: 3,
-    emergencySeats: ['1A', '1B', '2A'],
-    netBookableCapacity: 57,
-    turnaroundBufferMinutes: 70
+    heldBackSeats: 2,
+    emergencySeats: ['1A', '1B'],
+    netBookableCapacity: 58,
+    turnaroundBufferMinutes: 70,
+    isHighDemand: true,
+    demandStatus: 'High Demand (Oversubscribed)'
   },
   {
     tripId: 'T8',
@@ -382,13 +384,10 @@ export const DEMO_STUDENTS = [
     branch: 'AIDS',
     canTravelStanding: true,
     declaredAccessibilityNeed: false,
+    carryOverCredits: 1,
     rejectedRequestsLast14Days: 1,
     confirmedBookingsThisWeek: 2,
-    weeklyClassTimetable: [
-      { day: 'Monday', startTime: '09:00', endTime: '12:00', subject: 'Data Structures Lab' },
-      { day: 'Wednesday', startTime: '13:00', endTime: '15:30', subject: 'Machine Learning Lab' },
-      { day: 'Friday', startTime: '14:00', endTime: '16:00', subject: 'Discrete Mathematics' }
-    ]
+    weeklyClassTimetable: []
   },
   {
     misNumber: '112603042',
@@ -400,12 +399,10 @@ export const DEMO_STUDENTS = [
     branch: 'Cybersecurity',
     canTravelStanding: false, // Cannot stand! Must get seated or waitlisted
     declaredAccessibilityNeed: true, // Rule 1 Accessibility Priority!
+    carryOverCredits: 2,
     rejectedRequestsLast14Days: 2,
     confirmedBookingsThisWeek: 1,
-    weeklyClassTimetable: [
-      { day: 'Tuesday', startTime: '10:00', endTime: '12:00', subject: 'Network Security' },
-      { day: 'Thursday', startTime: '14:00', endTime: '17:00', subject: 'Cryptography Lab' }
-    ]
+    weeklyClassTimetable: []
   },
   {
     misNumber: '112401018',
@@ -417,11 +414,10 @@ export const DEMO_STUDENTS = [
     branch: 'CSE',
     canTravelStanding: true,
     declaredAccessibilityNeed: false,
+    carryOverCredits: 0,
     rejectedRequestsLast14Days: 0,
     confirmedBookingsThisWeek: 4,
-    weeklyClassTimetable: [
-      { day: 'Today', startTime: '13:00', endTime: '15:30', subject: 'Operating Systems Lab' }
-    ]
+    weeklyClassTimetable: []
   },
   {
     misNumber: '212502005',
@@ -433,11 +429,10 @@ export const DEMO_STUDENTS = [
     branch: 'ECE',
     canTravelStanding: true,
     declaredAccessibilityNeed: false,
-    rejectedRequestsLast14Days: 3, // Max carry-over credit
+    carryOverCredits: 3, // Max carry-over credit
+    rejectedRequestsLast14Days: 3,
     confirmedBookingsThisWeek: 0,
-    weeklyClassTimetable: [
-      { day: 'Wednesday', startTime: '09:00', endTime: '12:00', subject: 'Advanced VLSI Systems' }
-    ]
+    weeklyClassTimetable: []
   }
 ];
 

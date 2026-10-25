@@ -375,10 +375,19 @@ export const BusSearchResults = ({
               >
                 {/* Trip Header Strip */}
                 <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-4 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-2.5 py-0.5 rounded-lg bg-sky-100 text-sky-800 font-mono font-bold text-xs border border-sky-200">
                       {bus.tripId}
                     </span>
+                    {bus.tripId === 'T7' && (
+                      <span 
+                        id="trip-t7-oversubscribed-chip"
+                        className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-300 font-bold text-[11px] shadow-2xs flex items-center gap-1.5"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                        <span>Trip T7 (17:30) • High Demand (Oversubscribed)</span>
+                      </span>
+                    )}
                     <span className="text-xs font-semibold text-slate-700">
                       {bus.busClass}
                     </span>
@@ -455,8 +464,10 @@ export const BusSearchResults = ({
                   {/* Action Button */}
                   <div className="flex flex-col items-end gap-1.5">
                     <div className="text-xs text-right">
-                      <span className="font-bold text-emerald-600 uppercase text-[11px]">Free Campus Fare</span>
-                      <div className="text-[10px] text-slate-400">Rule-Based Allocation</div>
+                      <span className="font-bold text-slate-700 uppercase text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                        Trip {bus.tripId} ({bus.departureTime} Departure)
+                      </span>
+                      <div className="text-[10px] text-slate-400 mt-0.5">Rule-Based Allocation</div>
                     </div>
                     <button
                       type="button"
